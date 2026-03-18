@@ -30,7 +30,7 @@ PROMPT="Explain how Bittensor's proof of intelligence consensus mechanism works 
 # ── Preflight checks ─────────────────────────────────────────────────────────
 if ! systemctl is-active --quiet ollama; then
     echo "Ollama not running. Starting..."
-    echo "$SP" | sudo -S systemctl start ollama
+    s systemctl start ollama
     sleep 3
 fi
 
@@ -38,6 +38,11 @@ if ! ollama list 2>/dev/null | grep -q "$MODEL"; then
     echo "Model '$MODEL' not found. Pull it first: ollama pull $MODEL"
     exit 1
 fi
+
+# Ensure clean baseline — undo any previously applied presets
+log "Ensuring clean state for baseline..."
+bash "$PRESET_SCRIPT" --undo 2>/dev/null | grep -E "Revert|reverted|No backup" | sed 's/^/  /' || true
+sleep 2
 
 # ── JSON parser ──────────────────────────────────────────────────────────────
 parse_response() {
@@ -69,20 +74,21 @@ run_pass() {
     log "  Time: $(date +%H:%M:%S)"
 
     # Log current state
-    local gov proc
+    local gov
     gov=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo N/A)
-    proc=$(ollama ps 2>/dev/null | grep "$MODEL" | grep -oP '(100%|[0-9]+%) (GPU|CPU)' || echo "not loaded")
-    log "  Governor:  $gov"
-    log "  Processor: $proc"
+    log "  Governor: $gov"
 
-    # Confirm GPU
+    # Warmup — model loads on first call, so check GPU after
+    log "  Warming up ($WARMUP call)..."
+    for _ in $(seq 1 $WARMUP); do infer > /dev/null; done
+
+    # Confirm GPU after model is loaded
+    local proc
+    proc=$(ollama ps 2>/dev/null | grep "$MODEL" | grep -oP '[0-9]+% (GPU|CPU)' || echo "not loaded")
+    log "  Processor: $proc"
     if ! echo "$proc" | grep -qi "gpu"; then
         log "  WARNING: model not on GPU — results may be CPU-based"
     fi
-
-    # Warmup
-    log "  Warming up ($WARMUP call)..."
-    for _ in $(seq 1 $WARMUP); do infer > /dev/null; done
 
     # Measured passes
     log "  Running $PASSES inference passes..."
@@ -119,8 +125,8 @@ log "========================================"
 log "Hardware:"
 log "  CPU: $(lscpu | grep 'Model name:' | cut -d':' -f2 | xargs)"
 log "  GPU: $(lspci | grep -i 'VGA\|3D\|Display' | cut -d: -f3 | xargs || echo 'N/A')"
-GPU_VRAM=$(cat /sys/class/drm/card1/gt/gt0/../../../drm/card1/../../../mem_info_vram_total 2>/dev/null || echo "N/A")
-log "  GPU VRAM: $(ollama ps 2>/dev/null | grep "$MODEL" | awk '{print $3}' || echo 'check ollama ps')"
+VRAM_TOTAL=$(cat /sys/class/drm/card1/device/mem_info_vram_total 2>/dev/null | awk '{printf "%.1f GiB", $1/1073741824}' || echo "N/A")
+log "  GPU VRAM: $VRAM_TOTAL"
 log "========================================"
 
 # ── PASS 1: Baseline ─────────────────────────────────────────────────────────
