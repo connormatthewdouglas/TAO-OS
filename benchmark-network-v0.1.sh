@@ -26,10 +26,10 @@ fi
 SP="$TAO_SUDO_PASS"
 export TAO_SUDO_PASS
 s()  { echo "$SP" | sudo -S "$@" 2>/dev/null; }
-sc() { echo "$SP" | sudo -S bash -c "$1"; }
+sc() { echo "$SP" | sudo -S bash -c "$1" 2>/dev/null; }
 
 DURATION=10      # iperf3 test duration per run (seconds)
-RUNS=3           # runs per pass (averaged)
+RUNS=5           # runs per pass (averaged — more runs smooths CUBIC variance)
 WAN_DELAY="25ms" # one-way delay → 50ms RTT
 WAN_LOSS="0.5%"  # packet loss rate
 IPERF_PORT=15201
@@ -178,7 +178,7 @@ bash "$PRESET_SCRIPT" --undo 2>&1 | grep "✓\|Revert" | sed 's/^/  /' | tee -a 
 
 # ── Results ───────────────────────────────────────────────────────────────────
 if (( $(echo "$BASELINE > 0" | bc -l) )); then
-    DELTA=$(echo "scale=2; ($TUNED - $BASELINE) * 100 / $BASELINE" | bc -l)
+    DELTA=$(echo "scale=2; ($TUNED - $BASELINE) * 100 / $BASELINE" | bc -l | awk '{printf "%.2f", $1}')
 else
     DELTA="N/A"
 fi

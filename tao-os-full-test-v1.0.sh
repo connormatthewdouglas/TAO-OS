@@ -94,7 +94,7 @@ extract_coldstart() {
     local log="$1"
     COLD_BASELINE=$(grep "Baseline latency:" "$log" | grep -oP '[0-9]+\.[0-9]+' | head -1 || echo "?")
     COLD_TUNED=$(grep "Tuned latency:" "$log"       | grep -oP '[0-9]+\.[0-9]+' | head -1 || echo "?")
-    COLD_DELTA=$(grep "Delta:" "$log"               | grep -oP '[+\-]?[0-9]+\.[0-9]+' | head -1 || echo "?")
+    COLD_DELTA=$(grep "Delta:" "$log"               | grep -oP '[+\-]?[0-9]+\.[0-9]+' | head -1 || echo "N/A")
 }
 
 extract_sustained() {

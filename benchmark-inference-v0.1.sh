@@ -165,7 +165,7 @@ log "Reverting presets..."
 bash "$PRESET_SCRIPT" --undo 2>&1 | grep "✓\|Revert" | sed 's/^/  /' | tee -a "$LOG_FILE"
 
 # ── Results ───────────────────────────────────────────────────────────────────
-DELTA=$(echo "scale=2; ($TUNED - $BASELINE) * 100 / $BASELINE" | bc -l)
+DELTA=$(echo "scale=2; ($TUNED - $BASELINE) * 100 / $BASELINE" | bc -l | awk '{printf "%.2f", $1}')
 
 log ""
 log "========================================"

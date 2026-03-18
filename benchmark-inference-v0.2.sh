@@ -193,7 +193,7 @@ bash "$PRESET_SCRIPT" --undo 2>&1 | grep "✓\|Revert" | sed 's/^/  /' | tee -a 
 
 # ── Results ───────────────────────────────────────────────────────────────────
 if (( $(echo "$BASELINE > 0" | bc -l) )); then
-    DELTA=$(echo "scale=2; ($BASELINE - $TUNED) * 100 / $BASELINE" | bc -l)
+    DELTA=$(echo "scale=2; ($BASELINE - $TUNED) * 100 / $BASELINE" | bc -l | awk '{printf "%.2f", $1}')
     DELTA_LABEL="lower is better (latency)"
 else
     DELTA="N/A"
