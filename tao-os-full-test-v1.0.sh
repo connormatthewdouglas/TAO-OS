@@ -68,15 +68,20 @@ echo "======================================"
 # ── Capture key metrics from child benchmark logs ─────────────────────────────
 # Each benchmark writes its own log. We read the result line at the end.
 
-NET_BASELINE=""
-NET_TUNED=""
-NET_DELTA=""
-COLD_BASELINE=""
-COLD_TUNED=""
-COLD_DELTA=""
-WARM_BASELINE=""
-WARM_TUNED=""
-WARM_DELTA=""
+NET_BASELINE="" NET_TUNED="" NET_DELTA=""
+COLD_BASELINE="" COLD_TUNED="" COLD_DELTA=""
+WARM_BASELINE="" WARM_TUNED="" WARM_DELTA=""
+PWR_IDLE="" PWR_TUNED_IDLE="" PWR_DELTA=""
+
+# ── Power draw snapshot (3-second turbostat average) ─────────────────────────
+read_watts() {
+    if command -v turbostat &>/dev/null; then
+        echo "$TAO_SUDO_PASS" | sudo -S turbostat --quiet --num_iterations 1 \
+            --show PkgWatt 2>/dev/null | awk 'NR==2 {print $1}' || echo "N/A"
+    else
+        echo "N/A"
+    fi
+}
 
 extract_network() {
     local log="$1"
@@ -98,6 +103,12 @@ extract_sustained() {
     WARM_TUNED=$(grep "Tuned:" "$log"       | grep -oP '[0-9]+\.[0-9]+ tok/s' | head -1 || echo "?")
     WARM_DELTA=$(grep "Delta:" "$log"       | grep -oP '[+\-]?[0-9]*\.[0-9]+%' | head -1 || echo "?")
 }
+
+# ── Idle power — baseline (no presets) ───────────────────────────────────────
+echo ""
+echo "Reading idle power (no presets)..."
+PWR_IDLE=$(read_watts)
+echo "  → Idle power (baseline): ${PWR_IDLE}W"
 
 # ── Benchmark 1: Network ──────────────────────────────────────────────────────
 echo ""
@@ -124,6 +135,21 @@ WARM_LOG=$(ls -t "$LOG_DIR"/tao-os-inference-*.log 2>/dev/null | head -1)
 extract_sustained "$WARM_LOG"
 echo "  → Sustained inference done."
 
+# ── Idle power — tuned (presets applied briefly for reading) ─────────────────
+echo ""
+echo "Reading idle power with presets active..."
+bash "$SCRIPT_DIR/tao-os-presets-v0.5.sh" --apply-temp 2>&1 | grep "✓" | sed 's/^/  /' || true
+sleep 3
+PWR_TUNED_IDLE=$(read_watts)
+echo "  → Idle power (tuned): ${PWR_TUNED_IDLE}W"
+bash "$SCRIPT_DIR/tao-os-presets-v0.5.sh" --undo 2>&1 | grep -E "✓|Revert" | sed 's/^/  /' || true
+
+if [[ "$PWR_IDLE" != "N/A" && "$PWR_TUNED_IDLE" != "N/A" ]]; then
+    PWR_DELTA=$(python3 -c "print(f'{(float(\"$PWR_TUNED_IDLE\") - float(\"$PWR_IDLE\")):.1f}')" 2>/dev/null || echo "?")
+else
+    PWR_DELTA="N/A"
+fi
+
 # ── Summary table ─────────────────────────────────────────────────────────────
 SUMMARY=$(cat <<EOF
 
@@ -138,6 +164,7 @@ Benchmark              Baseline          Tuned             Delta
 Network throughput     ${NET_BASELINE} Mbit/s      ${NET_TUNED} Mbit/s      ${NET_DELTA}%
 Cold-start latency     ${COLD_BASELINE}ms           ${COLD_TUNED}ms            ${COLD_DELTA}%
 Sustained inference    ${WARM_BASELINE}     ${WARM_TUNED}   ${WARM_DELTA}
+Idle power draw        ${PWR_IDLE}W               ${PWR_TUNED_IDLE}W             ${PWR_DELTA}W
 
 Note: Presets reverted — system is back to defaults.
 Logs: $LOG_DIR/
