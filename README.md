@@ -71,6 +71,19 @@ A single script that applies a validated set of temporary OS tweaks tuned for Bi
 | CPU C3 idle state | disabled | Eliminates 350μs wakeup latency |
 | Transparent Huge Pages | always | Better for large ML model allocations |
 
+#### Network Benchmark Results (`benchmark-network-v0.1.sh`)
+
+Simulated WAN conditions: 50ms RTT + 0.5% packet loss (representative of inter-datacenter links Bittensor miners use).
+
+| Config | Throughput | Delta |
+|--------|-----------|-------|
+| CUBIC + 212KB buffers (default) | 169.2 Mbit/s | baseline |
+| BBR + 16MB buffers (presets) | 384.4 Mbit/s | **+127%** |
+
+The 212KB default socket buffer is the main bottleneck: at 50ms RTT, the bandwidth-delay product is ~2.4MB — far larger than 212KB, so Linux was forced to throttle the send window. The 16MB buffer preset eliminates this. BBR adds stability under packet loss. Together: **2.3x faster chain sync, weight delivery, and Bittensor gossip traffic.**
+
+---
+
 #### Benchmark Tools
 
 **`benchmark-v0.9-paired.sh`** — CPU/network load benchmark.
@@ -90,6 +103,12 @@ Runs baseline and tuned passes back-to-back in the same thermal window (ambient 
 
 ```bash
 ./benchmark-inference-v0.2.sh ./tao-os-presets-v0.5.sh tinyllama
+```
+
+**`benchmark-network-v0.1.sh`** — TCP throughput benchmark. Uses `tc netem` on loopback to simulate WAN conditions (50ms RTT + 0.5% loss). Compares CUBIC vs BBR + 16MB buffers.
+
+```bash
+./benchmark-network-v0.1.sh ./tao-os-presets-v0.5.sh
 ```
 
 ---
