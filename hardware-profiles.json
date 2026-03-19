@@ -1,0 +1,157 @@
+{
+  "schema_version": "1.0",
+  "last_updated": "2026-03-19",
+  "notes": "Append a new object to 'machines' for each new rig. Append to 'runs' after every wrapper execution. Fields set to null means data was not captured that run.",
+  "machines": [
+    {
+      "machine_id": "frosty-arc-a750",
+      "label": "Frosty's primary rig",
+      "hardware": {
+        "cpu": "AMD Ryzen 7 5700",
+        "cpu_cores_logical": 16,
+        "gpu": "Intel Arc A750 (DG2)",
+        "gpu_vram_gb": 8,
+        "ram_gb": 15,
+        "os": "Linux Mint 22.3",
+        "kernel": "6.17.0-19-generic"
+      },
+      "runs": [
+        {
+          "run_id": 1,
+          "date": "2026-03-18",
+          "preset_version": "v0.5",
+          "wrapper_version": "v1.0",
+          "network": {
+            "baseline_mbit": null,
+            "tuned_mbit": null,
+            "delta_pct": 124.0
+          },
+          "coldstart": {
+            "baseline_ms": 1023.6,
+            "tuned_ms": 1001.1,
+            "delta_pct": -2.19
+          },
+          "sustained": {
+            "baseline_toks": 68.75,
+            "tuned_toks": 68.07,
+            "delta_pct": -0.98
+          },
+          "power": {
+            "idle_baseline_w": null,
+            "idle_tuned_w": null,
+            "delta_w": null
+          },
+          "notes": "First run. Reference baseline values captured."
+        },
+        {
+          "run_id": 2,
+          "date": "2026-03-18",
+          "preset_version": "v0.5",
+          "wrapper_version": "v1.0",
+          "network": {
+            "baseline_mbit": null,
+            "tuned_mbit": null,
+            "delta_pct": 110.0
+          },
+          "coldstart": {
+            "baseline_ms": null,
+            "tuned_ms": null,
+            "delta_pct": -2.15
+          },
+          "sustained": {
+            "baseline_toks": null,
+            "tuned_toks": null,
+            "delta_pct": null
+          },
+          "power": {
+            "idle_baseline_w": null,
+            "idle_tuned_w": null,
+            "delta_w": null
+          },
+          "notes": ""
+        },
+        {
+          "run_id": 3,
+          "date": "2026-03-18",
+          "preset_version": "v0.5",
+          "wrapper_version": "v1.0",
+          "network": {
+            "baseline_mbit": null,
+            "tuned_mbit": null,
+            "delta_pct": 111.0
+          },
+          "coldstart": {
+            "baseline_ms": null,
+            "tuned_ms": null,
+            "delta_pct": -1.21
+          },
+          "sustained": {
+            "baseline_toks": null,
+            "tuned_toks": null,
+            "delta_pct": null
+          },
+          "power": {
+            "idle_baseline_w": null,
+            "idle_tuned_w": null,
+            "delta_w": 8.4
+          },
+          "notes": "First run with turbostat power logging."
+        },
+        {
+          "run_id": 4,
+          "date": "2026-03-18",
+          "preset_version": "v0.5",
+          "wrapper_version": "v1.0",
+          "network": {
+            "baseline_mbit": null,
+            "tuned_mbit": null,
+            "delta_pct": 55.0
+          },
+          "coldstart": {
+            "baseline_ms": null,
+            "tuned_ms": null,
+            "delta_pct": -1.41
+          },
+          "sustained": {
+            "baseline_toks": null,
+            "tuned_toks": null,
+            "delta_pct": null
+          },
+          "power": {
+            "idle_baseline_w": null,
+            "idle_tuned_w": null,
+            "delta_w": 5.7
+          },
+          "notes": "Network delta anomaly — CUBIC baseline unusually high, skews delta down. BBR tuned value consistent with other runs."
+        },
+        {
+          "run_id": 5,
+          "date": "2026-03-18",
+          "preset_version": "v0.5",
+          "wrapper_version": "v1.0",
+          "network": {
+            "baseline_mbit": null,
+            "tuned_mbit": null,
+            "delta_pct": 123.0
+          },
+          "coldstart": {
+            "baseline_ms": null,
+            "tuned_ms": null,
+            "delta_pct": -0.7
+          },
+          "sustained": {
+            "baseline_toks": null,
+            "tuned_toks": null,
+            "delta_pct": null
+          },
+          "power": {
+            "idle_baseline_w": null,
+            "idle_tuned_w": null,
+            "delta_w": null
+          },
+          "notes": "Cold-start delta lower than typical — thermal drift suspected (room warming across session)."
+        }
+      ]
+    }
+  ]
+}

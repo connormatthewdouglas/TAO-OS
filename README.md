@@ -35,7 +35,7 @@ Runs all benchmarks, applies presets, shows you exactly what you gain. All chang
 
 TAO-OS applies a set of temporary, safe OS tweaks tuned for Bittensor mining workloads. Every change reverts on reboot or with `--undo`.
 
-**14 tweaks in `tao-os-presets-v0.5.sh`:**
+**18 tweaks in `tao-os-presets-v0.6.sh`:**
 
 | Tweak | Value | Why |
 |-------|-------|-----|
@@ -53,11 +53,17 @@ TAO-OS applies a set of temporary, safe OS tweaks tuned for Bittensor mining wor
 | CPU C2 idle state | disabled | Eliminates 18μs wakeup latency |
 | CPU C3 idle state | disabled | Eliminates 350μs wakeup latency |
 | Transparent Huge Pages | always | Better for large ML model allocations |
+| AMD CPU turbo boost | enabled | Ensure boost not disabled by power profile |
+| THP defrag | madvise | Targeted defrag for ML — no system-wide stall |
+| vm.dirty_ratio | 5 | Start disk flushing earlier, reduce writeback stall |
+| vm.dirty_background_ratio | 2 | Background IO starts sooner, smoother throughput |
+| SYCL persistent cache | enabled | Cache compiled GPU kernels (Arc only) |
 
 Apply manually:
 ```bash
-./tao-os-presets-v0.5.sh --apply-temp   # apply
-./tao-os-presets-v0.5.sh --undo         # revert
+./tao-os-presets-v0.6.sh --dry-run      # preview all changes first
+./tao-os-presets-v0.6.sh --apply-temp   # apply
+./tao-os-presets-v0.6.sh --undo         # revert
 ```
 
 ---
@@ -81,10 +87,10 @@ Installs Intel compute-runtime (OpenCL 3.0), Level Zero, and configures Ollama's
 Each benchmark is also runnable standalone:
 
 ```bash
-./benchmark-network-v0.1.sh ./tao-os-presets-v0.5.sh        # TCP throughput, WAN sim
-./benchmark-inference-v0.2.sh ./tao-os-presets-v0.5.sh tinyllama  # cold-start latency
-./benchmark-inference-v0.1.sh ./tao-os-presets-v0.5.sh tinyllama  # sustained tok/s
-./benchmark-v0.9-paired.sh ./tao-os-presets-v0.5.sh          # CPU sysbench (paired)
+./benchmark-network-v0.1.sh ./tao-os-presets-v0.6.sh        # TCP throughput, WAN sim
+./benchmark-inference-v0.2.sh ./tao-os-presets-v0.6.sh tinyllama  # cold-start latency
+./benchmark-inference-v0.1.sh ./tao-os-presets-v0.6.sh tinyllama  # sustained tok/s
+./benchmark-v0.9-paired.sh ./tao-os-presets-v0.6.sh          # CPU sysbench (paired)
 ```
 
 ---
@@ -95,9 +101,11 @@ Each benchmark is also runnable standalone:
 - **Done** → Preset stack v0.5 (14 tweaks, fully reversible)
 - **Done** → Network benchmark: +127% confirmed (BBR + 16MB buffers)
 - **Done** → Cold-start inference benchmark: -22ms confirmed (GPU freq lock)
-- **Done** → Full-test wrapper v1.0 (single command, sudo prompt, auto-revert)
-- **Next** → External validation: 3 miners run it, send logs
-- **Next** → Intel Arc SYCL backend: stable 7B+ inference
+- **Done** → Full-test wrapper v1.1 (auto-appends results to hardware-profiles.json)
+- **Done** → Preset stack v0.6 (18 tweaks, --dry-run support)
+- **Done** → Hardware database: hardware-profiles.json (grows with every test run)
+- **Next** → Fleet validation: test on RX 580, laptops, friends' PCs
+- **Next** → Intel Arc SYCL backend: stable 7B+ inference (after fleet validation)
 - **v1.0** → One-click pre-tuned ISO + auto-updates for miners/validators
 - **v2.0+** → Full self-improving subnet (AI generates + validates tweaks, emissions for best configs)
 
