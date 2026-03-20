@@ -9,7 +9,8 @@
 | v0.3 | + Scheduler autogroup disabled, BBR+fq, swappiness=10, NMI watchdog, C2/C3 idle states disabled, THP=always, GPU SLPC+freq |
 | v0.4 | Dropped CPU min-freq lock (caused thermal regression +3°C, -0.21%) |
 | v0.5 | All v0.4 tweaks + GPU SLPC, min=2000MHz, boost=2400MHz, C2/C3 disable, THP |
-| v0.6 | Current. + AMD CPU boost ensure-enabled, THP defrag=madvise, vm.dirty_ratio/background_ratio, SYCL persistent cache (Arc only). Added --dry-run flag. |
+| v0.6 | + AMD CPU boost ensure-enabled, THP defrag=madvise, vm.dirty_ratio/background_ratio, SYCL persistent cache (Arc only). Added --dry-run flag. |
+| v0.7 | Current. +7 research-backed tweaks: tcp_rmem/wmem ceiling (closes auto-tuner gap), C6 disable by name (cross-BIOS robust), NUMA balancing off (single-node Ryzen), THP compaction_proactiveness=0, netdev_max_backlog=5000, sched_min_granularity_ns=1ms, somaxconn=4096. Total: 25 tweaks. |
 
 ## Benchmarks
 
@@ -31,7 +32,9 @@
 | Version | Change |
 |---------|--------|
 | v1.0 | First release — runs all 3 benchmarks, clean summary table, sudo prompt (no hardcoded PIN), turbostat idle power measurement |
-| v1.1 | Current. Points to presets v0.6, fixes hardcoded preset path in power section, auto-appends run results to hardware-profiles.json |
+| v1.1 | Points to presets v0.6, fixes hardcoded preset path in power section, auto-appends run results to hardware-profiles.json |
+| v1.2 | Auto-submits to tao-forge (Supabase) after every run. Zero setup — works from any internet-connected machine. Local JSON backup retained. |
+| v1.3 | Current. Points to tao-os-presets-v0.7.sh (25 tweaks). |
 
 ## Setup
 

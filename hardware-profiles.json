@@ -177,6 +177,33 @@
             "delta_w": null
           },
           "notes": ""
+        },
+        {
+          "run_id": 7,
+          "date": "2026-03-19",
+          "preset_version": "v0.6",
+          "wrapper_version": "v1.2",
+          "network": {
+            "baseline_mbit": 174.1,
+            "tuned_mbit": 388.1,
+            "delta_pct": 122.91
+          },
+          "coldstart": {
+            "baseline_ms": 1022.4,
+            "tuned_ms": 997.7,
+            "delta_pct": -2.41
+          },
+          "sustained": {
+            "baseline_toks": 75.58,
+            "tuned_toks": 75.79,
+            "delta_pct": 0.27
+          },
+          "power": {
+            "idle_baseline_w": 6.28,
+            "idle_tuned_w": null,
+            "delta_w": null
+          },
+          "notes": ""
         }
       ]
     }

@@ -5,7 +5,7 @@
 ```bash
 git clone https://github.com/connormatthewdouglas/TAO-OS.git
 cd TAO-OS
-./tao-os-full-test-v1.0.sh
+./tao-os-full-test-v1.3.sh
 ```
 
 Runs all benchmarks, applies presets, shows you exactly what you gain. All changes revert automatically.
@@ -35,7 +35,7 @@ Runs all benchmarks, applies presets, shows you exactly what you gain. All chang
 
 TAO-OS applies a set of temporary, safe OS tweaks tuned for Bittensor mining workloads. Every change reverts on reboot or with `--undo`.
 
-**18 tweaks in `tao-os-presets-v0.6.sh`:**
+**25 tweaks in `tao-os-presets-v0.7.sh`:**
 
 | Tweak | Value | Why |
 |-------|-------|-----|
@@ -58,12 +58,19 @@ TAO-OS applies a set of temporary, safe OS tweaks tuned for Bittensor mining wor
 | vm.dirty_ratio | 5 | Start disk flushing earlier, reduce writeback stall |
 | vm.dirty_background_ratio | 2 | Background IO starts sooner, smoother throughput |
 | SYCL persistent cache | enabled | Cache compiled GPU kernels (Arc only) |
+| tcp_rmem / tcp_wmem | 4096 / 262144 / 16MB | Closes auto-tuner ceiling gap — rmem_max set but TCP auto-tuner was silently capped lower |
+| C6 idle state | disabled (by name) | Cross-BIOS robust: detects C6 by name, not fragile state index. Eliminates ~1ms wakeup jitter |
+| kernel.numa_balancing | 0 | Ryzen 5700 is single NUMA node — NUMA balancing is pure overhead |
+| vm.compaction_proactiveness | 0 | Stops background THP compaction from causing latency spikes |
+| net.core.netdev_max_backlog | 5000 | Prevents silent packet drops under heavy Bittensor P2P / gossip traffic |
+| kernel.sched_min_granularity_ns | 1ms | Faster scheduler wakeup for inference threads yielding on GPU wait |
+| net.core.somaxconn | 4096 | Larger connection queue for simultaneous validator inbound connections |
 
 Apply manually:
 ```bash
-./tao-os-presets-v0.6.sh --dry-run      # preview all changes first
-./tao-os-presets-v0.6.sh --apply-temp   # apply
-./tao-os-presets-v0.6.sh --undo         # revert
+./tao-os-presets-v0.7.sh --dry-run      # preview all changes first
+./tao-os-presets-v0.7.sh --apply-temp   # apply
+./tao-os-presets-v0.7.sh --undo         # revert
 ```
 
 ---
@@ -87,10 +94,10 @@ Installs Intel compute-runtime (OpenCL 3.0), Level Zero, and configures Ollama's
 Each benchmark is also runnable standalone:
 
 ```bash
-./benchmarks/benchmark-network-v0.1.sh ./tao-os-presets-v0.6.sh        # TCP throughput, WAN sim
-./benchmarks/benchmark-inference-v0.2.sh ./tao-os-presets-v0.6.sh tinyllama  # cold-start latency
-./benchmarks/benchmark-inference-v0.1.sh ./tao-os-presets-v0.6.sh tinyllama  # sustained tok/s
-./benchmarks/benchmark-v0.9-paired.sh ./tao-os-presets-v0.6.sh          # CPU sysbench (paired)
+./benchmarks/benchmark-network-v0.1.sh ./tao-os-presets-v0.7.sh        # TCP throughput, WAN sim
+./benchmarks/benchmark-inference-v0.2.sh ./tao-os-presets-v0.7.sh tinyllama  # cold-start latency
+./benchmarks/benchmark-inference-v0.1.sh ./tao-os-presets-v0.7.sh tinyllama  # sustained tok/s
+./benchmarks/benchmark-v0.9-paired.sh ./tao-os-presets-v0.7.sh          # CPU sysbench (paired)
 ```
 
 ---
@@ -104,7 +111,9 @@ Each benchmark is also runnable standalone:
 - **Done** → Full-test wrapper v1.1 (auto-appends results to hardware-profiles.json)
 - **Done** → Preset stack v0.6 (18 tweaks, --dry-run support)
 - **Done** → Hardware database: hardware-profiles.json (grows with every test run)
-- **Next** → Fleet validation: test on RX 580, laptops, friends' PCs
+- **Done** → tao-forge: zero-setup Supabase backend, auto-submit from any internet-connected machine
+- **Done** → Preset stack v0.7 (25 tweaks: +7 research-backed additions)
+- **Next** → Fleet validation: test on RX 580, laptops, friends' PCs (v0.7)
 - **Next** → Intel Arc SYCL backend: stable 7B+ inference (after fleet validation)
 - **v1.0** → One-click pre-tuned ISO + auto-updates for miners/validators
 - **v2.0+** → Full self-improving subnet (AI generates + validates tweaks, emissions for best configs)
