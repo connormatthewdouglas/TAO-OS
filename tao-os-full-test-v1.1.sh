@@ -58,7 +58,7 @@ fi
 
 if ! command -v iperf3 &>/dev/null; then
     echo "Installing iperf3..."
-    echo "$TAO_SUDO_PASS" | sudo -S apt-get install -y iperf3 -qq 2>/dev/null
+    echo "$TAO_SUDO_PASS" | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y iperf3 -qq 2>/dev/null
 fi
 
 CPU_MODEL=$(lscpu | grep 'Model name:' | cut -d':' -f2 | xargs)
