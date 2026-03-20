@@ -10,6 +10,11 @@ cd TAO-OS
 
 Runs all benchmarks, applies presets, shows you exactly what you gain. All changes revert automatically.
 
+**See live results from all machines:**
+```bash
+./tao-forge-status.sh
+```
+
 ---
 
 ## Results (test rig: AMD Ryzen 7 5700 · Intel Arc A750)
