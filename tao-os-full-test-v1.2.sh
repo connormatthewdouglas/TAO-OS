@@ -106,8 +106,10 @@ PWR_IDLE="" PWR_TUNED_IDLE="" PWR_DELTA=""
 # ── Power draw snapshot ───────────────────────────────────────────────────────
 read_watts() {
     if command -v turbostat &>/dev/null; then
-        echo "$TAO_SUDO_PASS" | sudo -S turbostat --quiet --num_iterations 1 \
-            --show PkgWatt 2>/dev/null | awk 'NR==2 {print $1}' || echo "N/A"
+        local w
+        w=$(echo "$TAO_SUDO_PASS" | sudo -S turbostat --quiet --num_iterations 1 \
+            --show PkgWatt 2>/dev/null | awk 'NR==2 {print $1}')
+        [[ -n "$w" ]] && echo "$w" || echo "N/A"
     else
         echo "N/A"
     fi
