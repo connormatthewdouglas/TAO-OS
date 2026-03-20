@@ -122,7 +122,7 @@
             "idle_tuned_w": null,
             "delta_w": 5.7
           },
-          "notes": "Network delta anomaly — CUBIC baseline unusually high, skews delta down. BBR tuned value consistent with other runs."
+          "notes": "Network delta anomaly \u2014 CUBIC baseline unusually high, skews delta down. BBR tuned value consistent with other runs."
         },
         {
           "run_id": 5,
@@ -149,7 +149,34 @@
             "idle_tuned_w": null,
             "delta_w": null
           },
-          "notes": "Cold-start delta lower than typical — thermal drift suspected (room warming across session)."
+          "notes": "Cold-start delta lower than typical \u2014 thermal drift suspected (room warming across session)."
+        },
+        {
+          "run_id": 6,
+          "date": "2026-03-19",
+          "preset_version": "v0.6",
+          "wrapper_version": "v1.2",
+          "network": {
+            "baseline_mbit": 95.6,
+            "tuned_mbit": 383.1,
+            "delta_pct": 300.73
+          },
+          "coldstart": {
+            "baseline_ms": 1022.2,
+            "tuned_ms": 992.9,
+            "delta_pct": -2.86
+          },
+          "sustained": {
+            "baseline_toks": 76.35,
+            "tuned_toks": 76.65,
+            "delta_pct": 0.39
+          },
+          "power": {
+            "idle_baseline_w": 5.96,
+            "idle_tuned_w": null,
+            "delta_w": null
+          },
+          "notes": ""
         }
       ]
     }

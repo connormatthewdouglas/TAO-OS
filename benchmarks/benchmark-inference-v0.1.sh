@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-PRESET_SCRIPT="${1:-./tao-os-presets-v0.5.sh}"
+PRESET_SCRIPT="${1:-../tao-os-presets-v0.6.sh}"
 MODEL="${2:-tinyllama}"
 PASSES=5        # inference calls per pass (more = more stable average)
 WARMUP=1        # throwaway calls before measuring (GPU cold start)

@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-PRESET_SCRIPT="${1:-./tao-os-presets-v0.4.sh}"
+PRESET_SCRIPT="${1:-../tao-os-presets-v0.6.sh}"
 if [[ -z "${TAO_SUDO_PASS:-}" ]]; then
     read -rsp "[TAO-OS] sudo password: " TAO_SUDO_PASS && echo
 fi

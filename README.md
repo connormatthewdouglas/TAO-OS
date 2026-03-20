@@ -87,10 +87,10 @@ Installs Intel compute-runtime (OpenCL 3.0), Level Zero, and configures Ollama's
 Each benchmark is also runnable standalone:
 
 ```bash
-./benchmark-network-v0.1.sh ./tao-os-presets-v0.6.sh        # TCP throughput, WAN sim
-./benchmark-inference-v0.2.sh ./tao-os-presets-v0.6.sh tinyllama  # cold-start latency
-./benchmark-inference-v0.1.sh ./tao-os-presets-v0.6.sh tinyllama  # sustained tok/s
-./benchmark-v0.9-paired.sh ./tao-os-presets-v0.6.sh          # CPU sysbench (paired)
+./benchmarks/benchmark-network-v0.1.sh ./tao-os-presets-v0.6.sh        # TCP throughput, WAN sim
+./benchmarks/benchmark-inference-v0.2.sh ./tao-os-presets-v0.6.sh tinyllama  # cold-start latency
+./benchmarks/benchmark-inference-v0.1.sh ./tao-os-presets-v0.6.sh tinyllama  # sustained tok/s
+./benchmarks/benchmark-v0.9-paired.sh ./tao-os-presets-v0.6.sh          # CPU sysbench (paired)
 ```
 
 ---

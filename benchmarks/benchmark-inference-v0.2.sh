@@ -21,7 +21,7 @@
 
 set -euo pipefail
 
-PRESET_SCRIPT="${1:-./tao-os-presets-v0.5.sh}"
+PRESET_SCRIPT="${1:-../tao-os-presets-v0.6.sh}"
 MODEL="${2:-tinyllama}"
 PASSES=5          # cold-start calls per pass
 IDLE_SLEEP=15     # seconds to wait for GPU to drop to idle freq between calls
