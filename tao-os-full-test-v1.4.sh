@@ -326,11 +326,16 @@ SUPABASE_HEADERS=(
     -H "apikey: $SUPABASE_KEY"
     -H "Authorization: Bearer $SUPABASE_KEY"
     -H "Content-Type: application/json"
-    -H "Prefer: resolution=merge-duplicates"
 )
 
-# Upsert machine
-MACHINE_JSON=$(cat <<JSON
+# Upsert machine — check first, insert only if not exists
+MACHINE_EXISTS=$(curl -s \
+    -H "apikey: $SUPABASE_KEY" \
+    -H "Authorization: Bearer $SUPABASE_KEY" \
+    "$SUPABASE_URL/rest/v1/machines?machine_id=eq.$MACHINE_ID&select=machine_id" 2>/dev/null)
+
+if [[ "$MACHINE_EXISTS" == "[]" ]]; then
+    MACHINE_JSON=$(cat <<JSON
 {
   "machine_id": "$MACHINE_ID",
   "label": "Auto-detected",
@@ -343,25 +348,22 @@ MACHINE_JSON=$(cat <<JSON
 }
 JSON
 )
+    MACHINE_RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+        "${SUPABASE_HEADERS[@]}" \
+        -H "Prefer: return=minimal" \
+        "$SUPABASE_URL/rest/v1/machines" \
+        -d "$MACHINE_JSON" 2>/dev/null || echo "000")
+else
+    MACHINE_RESP="200"  # already exists, skip insert
+fi
 
-MACHINE_RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-    "${SUPABASE_HEADERS[@]}" \
-    "$SUPABASE_URL/rest/v1/machines" \
-    -d "$MACHINE_JSON" 2>/dev/null || echo "000")
-
-# Insert run (v1.4 schema)
+# Insert run (columns matching current DB schema)
 RUN_JSON=$(cat <<JSON
 {
   "machine_id": "$MACHINE_ID",
   "run_date": "$(date +%Y-%m-%d)",
-  "submission_timestamp": "$SUBMISSION_TIMESTAMP",
   "preset_version": "v0.7",
   "wrapper_version": "v1.4",
-  "hardware_fingerprint_hash": "$HW_FINGERPRINT",
-  "stability_flag": $STAB,
-  "thermal_headroom_c": $THERM,
-  "kernel_version": "$KERNEL",
-  "distro": "$OS_NAME",
   "network_baseline_mbit": $NET_B,
   "network_tuned_mbit": $NET_T,
   "network_delta_pct": $NET_D,
@@ -374,7 +376,7 @@ RUN_JSON=$(cat <<JSON
   "power_idle_baseline_w": $PWR_B,
   "power_idle_tuned_w": $PWR_T,
   "power_delta_w": $PWR_D,
-  "notes": ""
+  "notes": "hw:$HW_FINGERPRINT stability:$STAB thermal:${THERM}C kernel:$KERNEL"
 }
 JSON
 )

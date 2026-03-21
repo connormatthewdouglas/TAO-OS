@@ -249,6 +249,6 @@ def log_comms(from_agent, to_agent, msg_type, message):
 
 
 if __name__ == "__main__":
-    print(f"CopperClaw Dashboard running at http://localhost:{PORT}")
-    server = http.server.HTTPServer(("127.0.0.1", PORT), DashboardHandler)
+    print(f"CopperClaw Dashboard running at http://0.0.0.0:{PORT}")
+    server = http.server.HTTPServer(("0.0.0.0", PORT), DashboardHandler)
     server.serve_forever()

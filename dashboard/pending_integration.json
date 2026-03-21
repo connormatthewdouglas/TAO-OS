@@ -1,0 +1,10 @@
+[
+  {
+    "approval_id": "91db8c7c",
+    "tweak_name": "vm.min_free_kbytes=262144",
+    "target_version": "0.8",
+    "description": "Keeps 256MB memory headroom during model load. Prevents kernel reclaiming pages mid-inference, reducing cold-start jitter.",
+    "queued_at": "2026-03-21T02:58:46.132812",
+    "status": "awaiting_integration_test"
+  }
+]

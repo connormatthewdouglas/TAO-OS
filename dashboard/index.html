@@ -2,150 +2,537 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CopperClaw Dashboard — TAO-OS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>CopperClaw — Mission Control</title>
   <style>
     :root {
-      --bg: #0d0d0d;
-      --surface: #161616;
-      --surface2: #1e1e1e;
-      --border: #2a2a2a;
-      --copper: #b87333;
-      --copper-light: #d4956a;
-      --green: #4caf50;
-      --yellow: #ffc107;
-      --red: #f44336;
-      --blue: #64b5f6;
-      --text: #e0e0e0;
-      --text-dim: #888;
+      --bg:            #080810;
+      --bg2:           #0d0d1a;
+      --surface:       #111120;
+      --surface2:      #181828;
+      --surface3:      #1e1e32;
+      --border:        #2a2a44;
+      --border-glow:   #3d3d66;
+
+      --copper:        #b87333;
+      --copper-light:  #e8a060;
+      --copper-bright: #ffbe6a;
+      --copper-dim:    #6b4020;
+      --copper-glow:   rgba(184,115,51,0.25);
+
+      --green:         #39d353;
+      --green-dim:     #1a3a1a;
+      --yellow:        #ffd60a;
+      --yellow-dim:    #3a2f00;
+      --red:           #ff4757;
+      --red-dim:       #3a1010;
+      --blue:          #74b9ff;
+      --blue-dim:      #0d1f3a;
+      --purple:        #a29bfe;
+      --purple-dim:    #1a1a3a;
+      --teal:          #00cec9;
+
+      --text:          #e8e8f0;
+      --text-dim:      #7070a0;
+      --text-muted:    #4a4a70;
+
+      --radius:        12px;
+      --radius-sm:     8px;
+      --shadow:        0 4px 24px rgba(0,0,0,0.5);
+      --shadow-glow:   0 0 30px rgba(184,115,51,0.15);
     }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      font-family: 'Segoe UI', -apple-system, system-ui, sans-serif;
       font-size: 14px;
       min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse at 20% 0%, rgba(184,115,51,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 100%, rgba(116,185,255,0.04) 0%, transparent 60%);
     }
+
+    /* ─── HEADER ─── */
     header {
-      background: var(--surface);
+      background: linear-gradient(180deg, #0f0f1f 0%, #080810 100%);
       border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
+      padding: 20px 20px 24px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.6);
     }
-    .logo { font-size: 28px; }
-    .title-block h1 { font-size: 20px; color: var(--copper-light); font-weight: 600; }
-    .title-block p { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
-    .status-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: var(--green); margin-left: auto;
+
+    .title-block { flex: 1; min-width: 0; }
+    .title-block h1 {
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--copper-bright), var(--copper-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+    .title-block p {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(57,211,83,0.12);
+      border: 1px solid rgba(57,211,83,0.3);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .live-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
       box-shadow: 0 0 6px var(--green);
-      animation: pulse 2s infinite;
+      animation: blink 2s infinite;
     }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-    .status-label { font-size: 12px; color: var(--green); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ─── COPPERCLAW AVATAR ─── */
+    .avatar-wrap {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      flex-shrink: 0;
+    }
+
+    .avatar-svg {
+      width: 120px;
+      height: 120px;
+    }
+
+    /* Ring */
+    .av-ring {
+      fill: none;
+      stroke: url(#ringGrad);
+      stroke-width: 2.5;
+      transform-origin: center;
+    }
+    .av-ring-inner {
+      fill: none;
+      stroke: rgba(184,115,51,0.2);
+      stroke-width: 1;
+      stroke-dasharray: 4 6;
+      transform-origin: center;
+    }
+
+    /* Eyes */
+    .av-eye-glow { transition: opacity 0.5s; }
+    .av-eye { transition: fill 0.3s; }
+    .av-pupil { transition: all 0.3s; }
+
+    /* Circuit lines */
+    .av-circuit { stroke: rgba(184,115,51,0.35); stroke-width: 0.8; fill: none; transition: opacity 0.3s; }
+
+    /* Ears */
+    .av-ear { fill: url(#bodyGrad); }
+
+    /* ── WORKING STATE ── */
+    .state-working .av-ring {
+      animation: spinRing 3s linear infinite;
+    }
+    .state-working .av-ring-inner {
+      animation: spinRingRev 4s linear infinite;
+    }
+    @keyframes spinRing    { to { transform: rotate(360deg); } }
+    @keyframes spinRingRev { to { transform: rotate(-360deg); } }
+
+    .state-working .av-eye-glow {
+      animation: eyePulse 0.8s ease-in-out infinite;
+    }
+    @keyframes eyePulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+
+    .state-working .av-circuit {
+      animation: circuitFlash 1.5s ease-in-out infinite;
+    }
+    @keyframes circuitFlash { 0%,100%{opacity:0.35} 50%{opacity:0.9; stroke: #ffbe6a;} }
+
+    .state-working .av-spark {
+      opacity: 1;
+      animation: sparkAnim 0.6s ease-out infinite;
+    }
+    @keyframes sparkAnim {
+      0%   { transform: scale(0.5) rotate(0deg);  opacity: 0.8; }
+      50%  { transform: scale(1.2) rotate(180deg); opacity: 1; }
+      100% { transform: scale(0.5) rotate(360deg); opacity: 0; }
+    }
+
+    /* ── IDLE STATE ── */
+    .state-idle .av-ring {
+      animation: breatheRing 4s ease-in-out infinite;
+    }
+    @keyframes breatheRing { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+    .state-idle .av-eye-glow {
+      animation: breatheEye 4s ease-in-out infinite;
+    }
+    @keyframes breatheEye { 0%,100%{opacity:0.3} 50%{opacity:0.7} }
+
+    .state-idle .av-spark { opacity: 0; }
+
+    /* ── OFFLINE STATE ── */
+    .state-offline .avatar-svg {
+      filter: grayscale(0.7) brightness(0.5);
+    }
+    .state-offline .av-eye-glow {
+      animation: glitch 3s step-end infinite;
+    }
+    @keyframes glitch {
+      0%,90%,100%{opacity:0}
+      91%{opacity:0.5}
+      93%{opacity:0}
+      95%{opacity:0.3}
+    }
+    .state-offline .av-ring {
+      animation: none;
+      opacity: 0.2;
+    }
+    .state-offline .av-spark { opacity: 0; }
+
+    .avatar-state-label {
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .state-working  .avatar-state-label { color: var(--green); }
+    .state-idle     .avatar-state-label { color: var(--text-muted); }
+    .state-offline  .avatar-state-label { color: var(--red); }
+
+    /* ─── GRID ─── */
+    .main {
+      padding: 16px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
 
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      padding: 20px 24px;
-      max-width: 1400px;
+      gap: 14px;
     }
+
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+      header { padding: 12px 16px; }
+      .main  { padding: 12px; }
+    }
+
+    /* ─── CARDS ─── */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--radius);
       padding: 16px;
+      box-shadow: var(--shadow);
+      transition: border-color 0.3s;
     }
-    .card.full { grid-column: 1 / -1; }
-    .card h2 {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--copper);
-      margin-bottom: 12px;
-      font-weight: 600;
+    .card:hover { border-color: var(--border-glow); }
+    .card.full  { grid-column: 1 / -1; }
+    .card.highlight {
+      border-color: var(--copper-dim);
+      box-shadow: var(--shadow), var(--shadow-glow);
     }
 
-    /* Benchmark cards */
-    .bench-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .card-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      color: var(--copper);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-title .ct-icon { font-size: 13px; }
+
+    /* ─── STAT BOXES ─── */
+    .bench-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 400px) {
+      .bench-grid { grid-template-columns: 1fr; }
+    }
+
     .bench-item {
       background: var(--surface2);
-      border-radius: 6px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 12px;
+      text-align: center;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .bench-item:hover { border-color: var(--copper-dim); transform: translateY(-1px); }
+    .bench-item .b-label { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; }
+    .bench-item .b-delta {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--green), var(--teal));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .bench-item .b-delta.neg {
+      background: linear-gradient(135deg, var(--red), #ff9f7f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .bench-item .b-sub { font-size: 10px; color: var(--text-muted); margin-top: 6px; }
+
+    /* ─── BADGES ─── */
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.04em;
+    }
+    .badge-green  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(57,211,83,0.3); }
+    .badge-yellow { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,214,10,0.3); }
+    .badge-red    { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,71,87,0.3); }
+    .badge-blue   { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(116,185,255,0.3); }
+    .badge-copper { background: rgba(184,115,51,0.12); color: var(--copper-bright); border: 1px solid rgba(184,115,51,0.3); }
+    .badge-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(162,155,254,0.3); }
+
+    /* ─── INFO ROWS ─── */
+    .info-rows { display: flex; flex-direction: column; gap: 10px; }
+    .info-row  { display: flex; align-items: flex-start; gap: 10px; }
+    .info-label { min-width: 70px; flex-shrink: 0; padding-top: 1px; }
+    .info-val   { font-size: 13px; line-height: 1.4; color: var(--text); }
+
+    /* ─── WORK QUEUE ─── */
+    .queue-list { display: flex; flex-direction: column; gap: 8px; }
+    .queue-item {
+      display: grid;
+      grid-template-columns: 130px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--border);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    @media (max-width: 640px) {
+      .queue-item {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .q-runs { text-align: left !important; }
+    }
+
+    .queue-item.in_progress       { border-left-color: var(--yellow); background: rgba(255,214,10,0.04); }
+    .queue-item.queued            { border-left-color: var(--border); }
+    .queue-item.passed            { border-left-color: var(--green); }
+    .queue-item.failed            { border-left-color: var(--red); }
+    .queue-item.committed         { border-left-color: var(--copper); opacity: 0.55; }
+    .queue-item.awaiting_approval { border-left-color: var(--blue); background: rgba(116,185,255,0.04); }
+
+    .q-status {
+      font-size: 10px; font-weight: 700;
+      padding: 4px 10px; border-radius: 20px;
+      text-align: center; white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+    .q-status.queued            { background:#1e1e30; color:var(--text-dim); }
+    .q-status.in_progress       { background:var(--yellow-dim); color:var(--yellow); }
+    .q-status.passed            { background:var(--green-dim);  color:var(--green);  }
+    .q-status.failed            { background:var(--red-dim);    color:var(--red);    }
+    .q-status.committed         { background:rgba(184,115,51,0.1); color:var(--copper-bright); }
+    .q-status.awaiting_approval { background:var(--blue-dim);   color:var(--blue);   }
+
+    .q-type-tag {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 6px; border-radius: 4px; margin-right: 6px;
+    }
+    .q-type-tag.bug_fix          { background:#2a1000; color:#ff9800; }
+    .q-type-tag.tweak_candidate  { background:var(--blue-dim); color:var(--blue); }
+    .q-type-tag.integration_test { background:var(--purple-dim); color:var(--purple); }
+
+    .q-title  { font-size: 13px; font-weight: 600; font-family: 'Courier New', monospace; color: var(--text); }
+    .q-desc   { font-size: 11px; color: var(--text-dim); margin-top: 3px; line-height: 1.4; }
+    .q-result { font-size: 11px; margin-top: 4px; line-height: 1.4; }
+    .q-result.pass { color: var(--green); }
+    .q-result.fail { color: var(--red); }
+    .q-runs   { font-size: 11px; color: var(--text-dim); text-align: right; white-space: nowrap; }
+
+    /* ─── APPROVALS ─── */
+    .approval-card {
+      background: var(--surface2);
+      border: 1px solid rgba(255,214,10,0.3);
+      border-radius: var(--radius);
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .approval-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--yellow), var(--copper-bright), var(--yellow));
+    }
+    .approval-card.approved {
+      border-color: rgba(57,211,83,0.2);
+      opacity: 0.6;
+    }
+    .approval-card.approved::before {
+      background: linear-gradient(90deg, var(--green), var(--teal));
+    }
+    .approval-card.rejected {
+      border-color: rgba(255,71,87,0.2);
+      opacity: 0.6;
+    }
+    .approval-card.rejected::before { background: var(--red); }
+
+    .approval-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+    .approval-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--copper-bright);
+      font-family: 'Courier New', monospace;
+      flex: 1;
+    }
+
+    .approval-deltas {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 480px) {
+      .approval-deltas { grid-template-columns: 1fr; }
+    }
+
+    .delta-box {
+      background: var(--surface3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       padding: 12px;
       text-align: center;
     }
-    .bench-item .label { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
-    .bench-item .delta {
-      font-size: 22px; font-weight: 700;
-      color: var(--green);
-    }
-    .bench-item .delta.negative { color: var(--green); } /* latency reduction = good */
-    .bench-item .values { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+    .d-label { font-size: 10px; color: var(--text-dim); margin-bottom: 6px; }
+    .d-val   { font-size: 22px; font-weight: 800; line-height: 1; }
+    .d-sub   { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+    .d-pos   { color: var(--green); }
+    .d-neg   { color: var(--red); }
+    .d-neu   { color: var(--text-dim); }
 
-    /* Phase / blocker */
-    .info-row { display: flex; flex-direction: column; gap: 8px; }
-    .info-item { display: flex; gap: 10px; align-items: flex-start; }
-    .badge {
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 12px;
-      white-space: nowrap;
-      font-weight: 600;
-    }
-    .badge.green { background: #1a3a1a; color: var(--green); border: 1px solid var(--green); }
-    .badge.yellow { background: #3a2f00; color: var(--yellow); border: 1px solid var(--yellow); }
-    .badge.red { background: #3a1010; color: var(--red); border: 1px solid var(--red); }
-    .badge.blue { background: #0d1f33; color: var(--blue); border: 1px solid var(--blue); }
-    .badge.copper { background: #2a1800; color: var(--copper-light); border: 1px solid var(--copper); }
-    .info-text { font-size: 13px; line-height: 1.4; }
-
-    /* Tasks */
-    .task-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
-    .task {
-      display: flex; gap: 10px; align-items: flex-start;
-      padding: 8px 10px;
-      background: var(--surface2);
-      border-radius: 6px;
-      border-left: 3px solid var(--border);
-    }
-    .task.done { opacity: 0.45; border-left-color: var(--green); }
-    .task.open { border-left-color: var(--yellow); }
-    .task .check { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-    .task .task-text { font-size: 12px; line-height: 1.4; }
-    .task .task-src { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-
-    /* Git */
-    .commit-list { display: flex; flex-direction: column; gap: 4px; }
-    .commit {
-      font-size: 12px; font-family: monospace;
-      padding: 5px 8px;
-      background: var(--surface2);
-      border-radius: 4px;
+    .approval-desc {
+      font-size: 13px;
       color: var(--text-dim);
+      line-height: 1.6;
+      margin-bottom: 12px;
     }
-    .commit span { color: var(--copper-light); margin-right: 8px; }
+    .approval-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
 
-    /* Logs */
-    .log-list { display: flex; flex-direction: column; gap: 4px; max-height: 250px; overflow-y: auto; }
-    .log-item {
-      padding: 6px 10px;
-      background: var(--surface2);
-      border-radius: 4px;
+    /* BIG TOUCH BUTTONS */
+    .approval-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 400px) {
+      .approval-buttons { grid-template-columns: 1fr; }
+    }
+
+    .btn {
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      border: none;
       cursor: pointer;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      transition: all 0.15s;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
-    .log-item:hover { background: #252525; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 
-    /* Comms feed */
+    .btn-approve {
+      background: linear-gradient(135deg, #2d8f3c, #39d353);
+      color: #000;
+      box-shadow: 0 4px 16px rgba(57,211,83,0.3);
+    }
+    .btn-approve:hover:not(:disabled) {
+      box-shadow: 0 6px 24px rgba(57,211,83,0.5);
+      transform: translateY(-1px);
+    }
+    .btn-reject {
+      background: var(--surface3);
+      color: var(--red);
+      border: 1px solid rgba(255,71,87,0.4);
+      box-shadow: 0 4px 16px rgba(255,71,87,0.1);
+    }
+    .btn-reject:hover:not(:disabled) {
+      background: rgba(255,71,87,0.1);
+      box-shadow: 0 6px 20px rgba(255,71,87,0.2);
+      transform: translateY(-1px);
+    }
+
+    /* ─── COMMS FEED ─── */
+    .comms-feed { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
     .comms-entry {
       display: flex;
       gap: 10px;
-      padding: 8px 12px;
+      padding: 9px 12px;
       background: var(--surface2);
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       border-left: 3px solid var(--border);
       align-items: flex-start;
     }
@@ -154,516 +541,624 @@
     .comms-entry.green  { border-left-color: var(--green); }
     .comms-entry.yellow { border-left-color: var(--yellow); }
     .comms-entry.red    { border-left-color: var(--red); }
+
     .comms-from {
-      font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-      min-width: 90px;
-      padding-top: 2px;
+      font-size: 10px; font-weight: 800;
+      white-space: nowrap; min-width: 82px;
+      padding-top: 3px; letter-spacing: 0.04em;
     }
-    .comms-from.CopperClaw { color: var(--copper-light); }
+    .comms-from.CopperClaw { color: var(--copper-bright); }
     .comms-from.Claude     { color: var(--blue); }
     .comms-from.Connor     { color: var(--green); }
-    .comms-from.System     { color: var(--text-dim); }
-    .comms-body { flex: 1; }
-    .comms-msg  { font-size: 13px; line-height: 1.4; }
-    .comms-meta { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+    .comms-from.System     { color: var(--text-muted); }
+    .comms-from.Vega       { color: var(--purple); }
+
+    .comms-msg  { font-size: 12px; line-height: 1.5; color: var(--text); }
+    .comms-meta { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
     .type-badge {
-      display: inline-block;
-      font-size: 9px;
-      padding: 1px 6px;
-      border-radius: 8px;
-      margin-right: 6px;
-      font-weight: 600;
-      text-transform: uppercase;
+      display: inline-block; font-size: 9px;
+      padding: 1px 6px; border-radius: 6px;
+      margin-right: 5px; font-weight: 700; text-transform: uppercase;
     }
     .type-directive { background: #1a2e1a; color: var(--green); }
-    .type-action    { background: #1a1a2e; color: var(--blue); }
-    .type-result    { background: #2e2a1a; color: var(--yellow); }
-    .type-error     { background: #2e1a1a; color: var(--red); }
-    .type-info      { background: #1e1e1e; color: var(--text-dim); }
-    .type-init      { background: #2a1800; color: var(--copper-light); }
+    .type-action    { background: var(--blue-dim); color: var(--blue); }
+    .type-result    { background: var(--yellow-dim); color: var(--yellow); }
+    .type-error     { background: var(--red-dim); color: var(--red); }
+    .type-info      { background: #1e1e30; color: var(--text-dim); }
+    .type-init      { background: rgba(184,115,51,0.12); color: var(--copper-bright); }
 
-    /* Work Queue */
-    .queue-item {
-      display: grid;
-      grid-template-columns: 140px 1fr auto;
-      gap: 12px;
-      align-items: center;
-      padding: 10px 14px;
+    /* ─── TASKS ─── */
+    .task-list { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
+    .task {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 9px 12px;
       background: var(--surface2);
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       border-left: 3px solid var(--border);
     }
-    .queue-item.in_progress { border-left-color: var(--yellow); }
-    .queue-item.queued      { border-left-color: var(--border); }
-    .queue-item.passed      { border-left-color: var(--green); }
-    .queue-item.failed      { border-left-color: var(--red); }
-    .queue-item.committed   { border-left-color: var(--copper); opacity: 0.6; }
-    .queue-item.awaiting_approval { border-left-color: var(--blue); }
-    .q-status {
-      font-size: 10px; font-weight: 700; text-transform: uppercase;
-      padding: 3px 8px; border-radius: 8px; text-align: center; white-space: nowrap;
-    }
-    .q-status.queued      { background:#1e1e1e; color:var(--text-dim); }
-    .q-status.in_progress { background:#3a2f00; color:var(--yellow); }
-    .q-status.passed      { background:#1a3a1a; color:var(--green); }
-    .q-status.failed      { background:#3a1010; color:var(--red); }
-    .q-status.committed   { background:#2a1800; color:var(--copper-light); }
-    .q-status.awaiting_approval { background:#0d1f33; color:var(--blue); }
-    .q-title  { font-size: 13px; font-weight: 600; font-family: monospace; }
-    .q-desc   { font-size: 11px; color:var(--text-dim); margin-top:2px; }
-    .q-runs   { font-size: 11px; color:var(--text-dim); white-space:nowrap; text-align:right; }
-    .q-type   { font-size: 10px; padding:2px 6px; border-radius:4px; margin-right:6px; }
-    .q-type.bug_fix           { background:#2a1000; color:#ff9800; }
-    .q-type.tweak_candidate   { background:#0d1f33; color:var(--blue); }
-    .q-type.integration_test  { background:#1a1a2e; color:#ce93d8; }
-    .q-result { font-size:11px; margin-top:3px; }
-    .q-result.pass { color:var(--green); }
-    .q-result.fail { color:var(--red); }
+    .task.done { opacity: 0.4; border-left-color: var(--green); }
+    .task.open { border-left-color: var(--yellow); }
+    .task-check { font-size: 15px; flex-shrink: 0; }
+    .task-text { font-size: 12px; line-height: 1.5; }
+    .task-src  { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
 
-    /* Approvals */
-    .approval-card {
+    /* ─── COMMITS ─── */
+    .commit-list { display: flex; flex-direction: column; gap: 4px; }
+    .commit {
+      font-size: 12px; font-family: 'Courier New', monospace;
+      padding: 6px 10px;
       background: var(--surface2);
-      border: 1px solid var(--yellow);
-      border-radius: 8px;
-      padding: 16px;
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .approval-card.approved { border-color: var(--green); opacity: 0.6; }
-    .approval-card.rejected { border-color: var(--red); opacity: 0.6; }
-    .approval-header {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      margin-bottom: 12px;
-    }
-    .approval-title { font-size: 16px; font-weight: 700; color: var(--copper-light); }
-    .approval-status {
-      font-size: 11px; padding: 3px 10px; border-radius: 10px; font-weight: 700;
-    }
-    .approval-status.pending  { background: #3a2f00; color: var(--yellow); border: 1px solid var(--yellow); }
-    .approval-status.approved { background: #1a3a1a; color: var(--green);  border: 1px solid var(--green); }
-    .approval-status.rejected { background: #3a1010; color: var(--red);    border: 1px solid var(--red); }
-    .approval-deltas {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;
-    }
-    .delta-box {
-      background: var(--surface); border-radius: 6px; padding: 10px; text-align: center;
-    }
-    .delta-box .d-label { font-size: 10px; color: var(--text-dim); margin-bottom: 4px; }
-    .delta-box .d-val   { font-size: 18px; font-weight: 700; }
-    .delta-box .d-sub   { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-    .positive { color: var(--green); }
-    .negative { color: var(--red); }
-    .neutral  { color: var(--text-dim); }
-    .approval-desc { font-size: 13px; color: var(--text-dim); margin-bottom: 14px; line-height: 1.5; }
-    .approval-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 14px; }
-    .approval-buttons { display: flex; gap: 10px; }
-    .btn {
-      padding: 8px 24px; border-radius: 6px; border: none; cursor: pointer;
-      font-size: 13px; font-weight: 700; transition: opacity 0.15s;
-    }
-    .btn:hover { opacity: 0.85; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-approve { background: var(--green); color: #000; }
-    .btn-reject  { background: #2a2a2a; color: var(--red); border: 1px solid var(--red); }
-    .log-name { font-size: 12px; font-family: monospace; color: var(--blue); }
-    .log-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .commit-hash { color: var(--copper-light); margin-right: 8px; }
 
-    /* Memory */
+    /* ─── MEMORY BOX ─── */
     .memory-box {
       background: var(--surface2);
-      border-radius: 6px;
-      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
       font-size: 12px;
-      font-family: monospace;
+      font-family: 'Courier New', monospace;
       white-space: pre-wrap;
-      max-height: 300px;
+      max-height: 260px;
       overflow-y: auto;
-      line-height: 1.5;
+      line-height: 1.6;
       color: var(--text-dim);
     }
 
-    .refresh-note {
-      text-align: right;
-      padding: 4px 24px 16px;
-      font-size: 11px;
-      color: var(--text-dim);
+    /* ─── LOGS ─── */
+    .log-list { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+    .log-item {
+      padding: 7px 10px;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s;
     }
+    .log-item:hover { background: var(--surface3); }
+    .log-name { font-size: 12px; font-family: monospace; color: var(--blue); }
+    .log-meta { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
 
-    /* Hardware */
+    /* ─── HW BADGES ─── */
     .hw-badge {
       display: inline-block;
       background: var(--surface2);
       border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      padding: 5px 10px;
       font-size: 12px;
       font-family: monospace;
-      margin: 2px 4px 2px 0;
+      margin: 3px 4px 3px 0;
+      color: var(--text);
     }
+
+    /* ─── RUN BUDGET BAR ─── */
+    .budget-bar-wrap {
+      margin-top: 8px;
+      background: var(--surface2);
+      border-radius: 6px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .budget-bar {
+      height: 100%;
+      border-radius: 6px;
+      background: linear-gradient(90deg, var(--green), var(--yellow), var(--red));
+      transition: width 0.5s ease;
+    }
+
+    /* ─── MISC ─── */
+    .refresh-note {
+      text-align: center;
+      padding: 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .scrollable { max-height: 320px; overflow-y: auto; }
+    .scrollable::-webkit-scrollbar { width: 4px; }
+    .scrollable::-webkit-scrollbar-track { background: var(--surface); }
+    .scrollable::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .empty { color: var(--text-muted); font-size: 13px; padding: 8px 0; font-style: italic; }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">🟤</div>
-  <div class="title-block">
-    <h1>CopperClaw Dashboard</h1>
-    <p>TAO-OS Project · Vega · Lead Dev + PM</p>
+  <div class="avatar-wrap state-idle" id="avatarWrap">
+    <svg class="avatar-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="#1a1030"/>
+          <stop offset="100%" stop-color="#080810"/>
+        </radialGradient>
+        <radialGradient id="bodyGrad" cx="50%" cy="40%" r="60%">
+          <stop offset="0%"   stop-color="#c8843a"/>
+          <stop offset="100%" stop-color="#7a4818"/>
+        </radialGradient>
+        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#ffbe6a"/>
+          <stop offset="50%"  stop-color="#b87333"/>
+          <stop offset="100%" stop-color="#ffbe6a"/>
+        </linearGradient>
+        <radialGradient id="eyeGlowL" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="#ff9800" stop-opacity="0.8"/>
+          <stop offset="100%" stop-color="#ff9800" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="eyeGlowR" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="#ff9800" stop-opacity="0.8"/>
+          <stop offset="100%" stop-color="#ff9800" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="2" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Background -->
+      <circle cx="50" cy="50" r="48" fill="url(#bgGrad)"/>
+
+      <!-- Outer ring -->
+      <circle cx="50" cy="50" r="45" class="av-ring"/>
+      <!-- Inner dashed ring -->
+      <circle cx="50" cy="50" r="40" class="av-ring-inner"/>
+
+      <!-- Circuit lines -->
+      <g class="av-circuit">
+        <line x1="50" y1="10" x2="50" y2="22"/>
+        <line x1="50" y1="22" x2="60" y2="28"/>
+        <line x1="50" y1="22" x2="40" y2="28"/>
+        <line x1="78" y1="30" x2="68" y2="38"/>
+        <line x1="22" y1="30" x2="32" y2="38"/>
+        <line x1="82" y1="62" x2="70" y2="56"/>
+        <line x1="18" y1="62" x2="30" y2="56"/>
+        <line x1="50" y1="88" x2="50" y2="76"/>
+        <line x1="50" y1="76" x2="42" y2="68"/>
+        <line x1="50" y1="76" x2="58" y2="68"/>
+        <!-- Circuit dots -->
+        <circle cx="50" cy="22" r="1.5" fill="#b87333" class="av-circuit" style="stroke:none"/>
+        <circle cx="50" cy="76" r="1.5" fill="#b87333" class="av-circuit" style="stroke:none"/>
+        <circle cx="68" cy="38" r="1.5" fill="#b87333" class="av-circuit" style="stroke:none"/>
+        <circle cx="32" cy="38" r="1.5" fill="#b87333" class="av-circuit" style="stroke:none"/>
+      </g>
+
+      <!-- Pointed ears -->
+      <polygon points="30,45 22,20 40,38" class="av-ear"/>
+      <polygon points="70,45 78,20 60,38" class="av-ear"/>
+
+      <!-- Face base -->
+      <ellipse cx="50" cy="55" rx="24" ry="22" fill="url(#bodyGrad)"/>
+
+      <!-- Face detail lines -->
+      <path d="M38,52 Q50,48 62,52" stroke="rgba(0,0,0,0.3)" stroke-width="1" fill="none"/>
+      <path d="M38,58 Q50,54 62,58" stroke="rgba(0,0,0,0.2)" stroke-width="0.7" fill="none"/>
+
+      <!-- Eye glow (soft halo) -->
+      <ellipse cx="40" cy="50" rx="9" ry="7" fill="url(#eyeGlowL)" class="av-eye-glow"/>
+      <ellipse cx="60" cy="50" rx="9" ry="7" fill="url(#eyeGlowR)" class="av-eye-glow"/>
+
+      <!-- Eyes -->
+      <ellipse cx="40" cy="50" rx="5.5" ry="5" fill="#1a0d00" class="av-eye"/>
+      <ellipse cx="60" cy="50" rx="5.5" ry="5" fill="#1a0d00" class="av-eye"/>
+
+      <!-- Pupils (slit) -->
+      <ellipse cx="40" cy="50" rx="1.5" ry="4.5" fill="#ff9800" class="av-pupil" filter="url(#glow)"/>
+      <ellipse cx="60" cy="50" rx="1.5" ry="4.5" fill="#ff9800" class="av-pupil" filter="url(#glow)"/>
+
+      <!-- Claw marks at bottom -->
+      <g opacity="0.7">
+        <path d="M36,70 Q33,76 35,80" stroke="#7a4818" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M40,71 Q38,78 40,82" stroke="#7a4818" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M44,72 Q43,79 45,83" stroke="#7a4818" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M56,72 Q57,79 55,83" stroke="#7a4818" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M60,71 Q62,78 60,82" stroke="#7a4818" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M64,70 Q67,76 65,80" stroke="#7a4818" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      </g>
+
+      <!-- Sparks (working only) -->
+      <g class="av-spark" opacity="0" transform-origin="50 50">
+        <polygon points="50,8 52,14 48,14" fill="#ffbe6a" transform-origin="50 11"/>
+        <polygon points="88,40 83,44 85,38" fill="#ffbe6a" transform-origin="85 41"/>
+        <polygon points="12,40 17,44 15,38" fill="#ffbe6a" transform-origin="15 41"/>
+        <polygon points="50,92 52,86 48,86" fill="#ffbe6a" transform-origin="50 89"/>
+      </g>
+
+      <!-- Nose -->
+      <polygon points="50,56 47,60 53,60" fill="rgba(0,0,0,0.4)"/>
+      <!-- Mouth hint -->
+      <path d="M45,64 Q50,67 55,64" stroke="rgba(0,0,0,0.35)" stroke-width="1" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="avatar-state-label" id="avatarLabel">IDLE</div>
   </div>
-  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-    <div class="status-dot"></div>
-    <span class="status-label">LIVE</span>
+
+  <div class="title-block">
+    <h1>Mission Control</h1>
+    <p>CopperClaw · TAO-OS · Vega</p>
+  </div>
+
+  <div class="header-right">
+    <div class="live-badge" id="liveBadge">
+      <div class="live-dot"></div>
+      <span id="liveLabel">LIVE</span>
+    </div>
   </div>
 </header>
 
-<div class="grid">
+<div class="main">
+  <div class="grid">
 
-  <!-- Status -->
-  <div class="card">
-    <h2>Project Status</h2>
-    <div class="info-row" id="status-info">
-      <div style="color:var(--text-dim)">Loading...</div>
+    <!-- ── PROJECT STATUS ── -->
+    <div class="card">
+      <div class="card-title"><span class="ct-icon">📡</span> Project Status</div>
+      <div class="info-rows" id="status-info">
+        <div class="empty">Loading…</div>
+      </div>
     </div>
-  </div>
 
-  <!-- Hardware -->
-  <div class="card">
-    <h2>Test Hardware</h2>
-    <div id="hardware-info" style="color:var(--text-dim);font-size:13px;">Loading...</div>
-    <div style="margin-top:12px;font-size:11px;color:var(--text-dim)" id="bench-time"></div>
-  </div>
-
-  <!-- Benchmarks -->
-  <div class="card full">
-    <h2>Latest Benchmark Results</h2>
-    <div class="bench-grid" id="bench-grid">
-      <div style="color:var(--text-dim)">Loading...</div>
+    <!-- ── HARDWARE ── -->
+    <div class="card">
+      <div class="card-title"><span class="ct-icon">🖥</span> Hardware</div>
+      <div id="hardware-info"><div class="empty">Loading…</div></div>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-muted)" id="bench-time"></div>
     </div>
-  </div>
 
-  <!-- Tasks -->
-  <div class="card">
-    <h2>Open Tasks</h2>
-    <div class="task-list" id="task-list">
-      <div style="color:var(--text-dim)">Loading...</div>
+    <!-- ── BENCHMARKS ── -->
+    <div class="card full">
+      <div class="card-title"><span class="ct-icon">📊</span> Latest Benchmark</div>
+      <div class="bench-grid" id="bench-grid">
+        <div class="empty" style="grid-column:1/-1">Loading…</div>
+      </div>
     </div>
-  </div>
 
-  <!-- Git -->
-  <div class="card">
-    <h2>Recent Commits</h2>
-    <div class="commit-list" id="commit-list">
-      <div style="color:var(--text-dim)">Loading...</div>
+    <!-- ── WORK QUEUE ── -->
+    <div class="card full highlight">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span><span class="ct-icon">⚙️</span> Work Queue</span>
+        <span id="queue-counter" style="color:var(--text-muted);font-size:11px;font-weight:400;text-transform:none;letter-spacing:0"></span>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-bottom:4px">
+          <span>Run budget</span>
+          <span id="budget-label">— / 12</span>
+        </div>
+        <div class="budget-bar-wrap">
+          <div class="budget-bar" id="budget-bar" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="queue-list" id="queue-list">
+        <div class="empty">Loading…</div>
+      </div>
     </div>
-  </div>
 
-  <!-- Memory -->
-  <div class="card full">
-    <h2>CopperClaw Today's Notes</h2>
-    <div class="memory-box" id="memory-box">Loading...</div>
-  </div>
-
-  <!-- Work Queue -->
-  <div class="card full">
-    <h2>🔧 Work Queue <span id="queue-counter" style="color:var(--text-dim);font-weight:400;font-size:11px;margin-left:8px;"></span></h2>
-    <div id="queue-list" style="display:flex;flex-direction:column;gap:6px;">
-      <div style="color:var(--text-dim)">Loading...</div>
+    <!-- ── APPROVALS ── -->
+    <div class="card full" id="approvals-card">
+      <div class="card-title"><span class="ct-icon">⚡</span> Tweak Approvals</div>
+      <div class="empty" id="approvals-empty">No tweaks pending — CopperClaw is running.</div>
+      <div id="approvals-list" style="display:flex;flex-direction:column;gap:14px;"></div>
     </div>
-  </div>
 
-  <!-- Tweak Approvals -->
-  <div class="card full" id="approvals-card">
-    <h2>⚡ Tweak Approvals — Pending Review</h2>
-    <div id="approvals-empty" style="color:var(--text-dim);font-size:13px;padding:8px 0">
-      No tweaks pending approval. CopperClaw is running the iteration loop.
+    <!-- ── COMMS FEED ── -->
+    <div class="card full">
+      <div class="card-title"><span class="ct-icon">🟤</span> Agent Comms</div>
+      <div class="comms-feed scrollable" id="comms-feed">
+        <div class="empty">Loading…</div>
+      </div>
     </div>
-    <div id="approvals-list" style="display:flex;flex-direction:column;gap:12px;"></div>
-  </div>
 
-  <!-- Comms Feed -->
-  <div class="card full">
-    <h2>🟤 Agent Comms — Live Feed</h2>
-    <div id="comms-feed" style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto;"></div>
-  </div>
-
-  <!-- Logs -->
-  <div class="card full">
-    <h2>Recent Logs</h2>
-    <div class="log-list" id="log-list">
-      <div style="color:var(--text-dim)">Loading...</div>
+    <!-- ── TASKS ── -->
+    <div class="card">
+      <div class="card-title"><span class="ct-icon">📋</span> Open Tasks</div>
+      <div class="task-list" id="task-list">
+        <div class="empty">Loading…</div>
+      </div>
     </div>
-  </div>
 
+    <!-- ── COMMITS ── -->
+    <div class="card">
+      <div class="card-title"><span class="ct-icon">📦</span> Recent Commits</div>
+      <div class="commit-list" id="commit-list">
+        <div class="empty">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── MEMORY ── -->
+    <div class="card full">
+      <div class="card-title"><span class="ct-icon">🧠</span> CopperClaw — Today's Notes</div>
+      <div class="memory-box" id="memory-box">Loading…</div>
+    </div>
+
+    <!-- ── LOGS ── -->
+    <div class="card full">
+      <div class="card-title"><span class="ct-icon">📄</span> Recent Logs</div>
+      <div class="log-list" id="log-list">
+        <div class="empty">Loading…</div>
+      </div>
+    </div>
+
+  </div>
+  <div class="refresh-note" id="last-refresh">Auto-refreshes every 15s</div>
 </div>
 
-<div class="refresh-note" id="last-refresh">Auto-refreshes every 15s</div>
-
 <script>
-  const API = 'http://localhost:7420/api';
+  const API = '/api';
 
   async function fetchJSON(path) {
     const r = await fetch(API + path);
     return r.json();
   }
 
+  // ── Avatar state ──
+  let currentState = 'idle';
+  function setAvatarState(state) {
+    if (state === currentState) return;
+    currentState = state;
+    const wrap  = document.getElementById('avatarWrap');
+    const label = document.getElementById('avatarLabel');
+    wrap.className = `avatar-wrap state-${state}`;
+    label.textContent = state.toUpperCase();
+    // Live badge
+    const badge = document.getElementById('liveBadge');
+    const lbl   = document.getElementById('liveLabel');
+    if (state === 'working') {
+      badge.style.background = 'rgba(57,211,83,0.15)';
+      badge.style.borderColor = 'rgba(57,211,83,0.4)';
+      badge.style.color = 'var(--green)';
+      lbl.textContent = 'WORKING';
+    } else if (state === 'offline') {
+      badge.style.background = 'rgba(255,71,87,0.12)';
+      badge.style.borderColor = 'rgba(255,71,87,0.3)';
+      badge.style.color = 'var(--red)';
+      lbl.textContent = 'OFFLINE';
+    } else {
+      badge.style.background = 'rgba(112,112,160,0.1)';
+      badge.style.borderColor = 'rgba(112,112,160,0.25)';
+      badge.style.color = 'var(--text-dim)';
+      lbl.textContent = 'IDLE';
+    }
+  }
+
+  // ── Status ──
   async function loadStatus() {
     const d = await fetchJSON('/status');
+    document.getElementById('status-info').innerHTML = `
+      <div class="info-row">
+        <span class="badge badge-blue info-label">Phase</span>
+        <span class="info-val">${d.phase}</span>
+      </div>
+      <div class="info-row" style="margin-top:8px">
+        <span class="badge badge-copper info-label">Version</span>
+        <span class="info-val">${d.version.presets} &middot; Wrapper ${d.version.wrapper}</span>
+      </div>
+      <div class="info-row" style="margin-top:8px">
+        <span class="badge badge-red info-label">Blocker</span>
+        <span class="info-val">${d.blocker}</span>
+      </div>
+      <div class="info-row" style="margin-top:8px">
+        <span class="badge badge-yellow info-label">Next</span>
+        <span class="info-val">${d.next_action}</span>
+      </div>`;
 
-    // Status info
-    const el = document.getElementById('status-info');
-    el.innerHTML = `
-      <div class="info-item">
-        <span class="badge blue">Phase</span>
-        <span class="info-text">${d.phase}</span>
-      </div>
-      <div class="info-item">
-        <span class="badge copper">Version</span>
-        <span class="info-text">${d.version.presets} · Wrapper ${d.version.wrapper}</span>
-      </div>
-      <div class="info-item">
-        <span class="badge red">Blocker</span>
-        <span class="info-text">${d.blocker}</span>
-      </div>
-      <div class="info-item">
-        <span class="badge yellow">Next</span>
-        <span class="info-text">${d.next_action}</span>
-      </div>
-    `;
-
-    // Hardware
     const hw = document.getElementById('hardware-info');
-    if (d.latest_benchmark && d.latest_benchmark.hardware_cpu) {
+    if (d.latest_benchmark?.hardware_cpu) {
       hw.innerHTML = `
         <div class="hw-badge">🖥 ${d.latest_benchmark.hardware_cpu}</div>
-        <div class="hw-badge">🎮 ${d.latest_benchmark.hardware_gpu || 'GPU data loading'}</div>
-      `;
+        <div class="hw-badge">🎮 ${d.latest_benchmark.hardware_gpu || 'GPU N/A'}</div>`;
     }
-    if (d.latest_benchmark?.log_time) {
+    if (d.latest_benchmark?.log_time)
       document.getElementById('bench-time').textContent = `Last run: ${d.latest_benchmark.log_time}`;
-    }
 
-    // Benchmarks
     const bg = document.getElementById('bench-grid');
-    if (d.latest_benchmark && d.latest_benchmark.network) {
+    if (d.latest_benchmark?.network) {
       const b = d.latest_benchmark;
+      const netDelta = b.network?.delta || 'N/A';
+      const csDelta  = b.coldstart?.delta || 'N/A';
+      const infDelta = b.inference?.delta ? '+' + b.inference.delta : 'N/A';
+      const netNeg   = netDelta.startsWith('-');
+      const csNeg    = !csDelta.startsWith('-'); // latency: negative = good
       bg.innerHTML = `
         <div class="bench-item">
-          <div class="label">🌐 Network Throughput</div>
-          <div class="delta">${b.network?.delta || 'N/A'}</div>
-          <div class="values">${b.network?.baseline} → ${b.network?.tuned} Mbit/s</div>
+          <div class="b-label">🌐 Network Throughput</div>
+          <div class="b-delta ${netNeg?'neg':''}">${netDelta}</div>
+          <div class="b-sub">${b.network?.baseline} → ${b.network?.tuned} Mbit/s</div>
         </div>
         <div class="bench-item">
-          <div class="label">⚡ Cold-Start Latency</div>
-          <div class="delta">${b.coldstart?.delta || 'N/A'}</div>
-          <div class="values">${b.coldstart?.baseline}ms → ${b.coldstart?.tuned}ms</div>
+          <div class="b-label">⚡ Cold-Start Latency</div>
+          <div class="b-delta ${csNeg?'neg':''}">${csDelta}</div>
+          <div class="b-sub">${b.coldstart?.baseline}ms → ${b.coldstart?.tuned}ms</div>
         </div>
         <div class="bench-item">
-          <div class="label">🤖 Sustained Inference</div>
-          <div class="delta">${b.inference?.delta ? '+' + b.inference.delta : 'N/A'}</div>
-          <div class="values">${b.inference?.baseline} → ${b.inference?.tuned} tok/s</div>
-        </div>
-      `;
+          <div class="b-label">🤖 Sustained Inference</div>
+          <div class="b-delta">${infDelta}</div>
+          <div class="b-sub">${b.inference?.baseline} → ${b.inference?.tuned} tok/s</div>
+        </div>`;
     } else {
-      bg.innerHTML = '<div style="color:var(--text-dim);grid-column:1/-1">No benchmark data found</div>';
+      bg.innerHTML = '<div class="empty" style="grid-column:1/-1">No benchmark data found</div>';
     }
 
-    // Git commits
     const cl = document.getElementById('commit-list');
     if (d.git?.recent_commits?.length) {
       cl.innerHTML = d.git.recent_commits.map(c => {
         const [hash, ...rest] = c.split(' ');
-        return `<div class="commit"><span>${hash}</span>${rest.join(' ')}</div>`;
+        return `<div class="commit"><span class="commit-hash">${hash}</span>${rest.join(' ')}</div>`;
       }).join('');
     } else {
-      cl.innerHTML = '<div style="color:var(--text-dim)">No git data</div>';
+      cl.innerHTML = '<div class="empty">No git data</div>';
     }
   }
 
+  // ── Tasks ──
   async function loadTasks() {
     const tasks = await fetchJSON('/tasks');
     const el = document.getElementById('task-list');
-    if (!tasks.length) {
-      el.innerHTML = '<div style="color:var(--text-dim)">No tasks found</div>';
-      return;
-    }
+    if (!tasks.length) { el.innerHTML = '<div class="empty">No tasks found</div>'; return; }
     const open = tasks.filter(t => !t.done);
     const done = tasks.filter(t => t.done);
-    const all = [...open, ...done];
-    el.innerHTML = all.map(t => `
-      <div class="task ${t.done ? 'done' : 'open'}">
-        <span class="check">${t.done ? '✅' : '🔲'}</span>
+    el.innerHTML = [...open, ...done].map(t => `
+      <div class="task ${t.done?'done':'open'}">
+        <span class="task-check">${t.done?'✅':'🔲'}</span>
         <div>
           <div class="task-text">${t.text}</div>
           <div class="task-src">${t.source}</div>
         </div>
-      </div>
-    `).join('');
+      </div>`).join('');
   }
 
+  // ── Memory ──
   async function loadMemory() {
     const mem = await fetchJSON('/memory');
-    const el = document.getElementById('memory-box');
-    el.textContent = mem.today || '(No notes yet today)';
+    document.getElementById('memory-box').textContent = mem.today || '(No notes yet today)';
   }
 
+  // ── Logs ──
   async function loadLogs() {
     const logs = await fetchJSON('/logs');
-    const el = document.getElementById('log-list');
-    el.innerHTML = logs.map(l => `
+    document.getElementById('log-list').innerHTML = logs.map(l => `
       <div class="log-item">
         <div class="log-name">${l.name}</div>
-        <div class="log-meta">${l.modified} · ${(l.size/1024).toFixed(1)}KB · ${l.preview.substring(0,120)}...</div>
-      </div>
-    `).join('');
+        <div class="log-meta">${l.modified} · ${(l.size/1024).toFixed(1)}KB</div>
+      </div>`).join('');
   }
 
+  // ── Queue ──
   async function loadQueue() {
     const items = await fetchJSON('/queue');
-    const el = document.getElementById('queue-list');
+    const el      = document.getElementById('queue-list');
     const counter = document.getElementById('queue-counter');
 
-    if (!items.length) {
-      el.innerHTML = '<div style="color:var(--text-dim)">Queue empty</div>';
-      return;
-    }
+    if (!items.length) { el.innerHTML = '<div class="empty">Queue empty</div>'; return; }
 
-    const active = items.filter(i => !['committed'].includes(i.status)).length;
-    counter.textContent = `${active} active · ${items.length} total · 12 run budget tonight`;
+    const runsUsed = items.reduce((s, i) => s + (i.runs_used || 0), 0);
+    const active   = items.filter(i => i.status !== 'committed').length;
+    counter.textContent = `${active} active · ${items.length} total`;
+    document.getElementById('budget-label').textContent = `${runsUsed} / 12 runs`;
+    document.getElementById('budget-bar').style.width = Math.min(100, (runsUsed/12)*100) + '%';
+
+    // Derive avatar state from queue
+    const isWorking = items.some(i => i.status === 'in_progress');
+    setAvatarState(isWorking ? 'working' : 'idle');
 
     const typeLabel = { bug_fix:'🐛 Bug Fix', tweak_candidate:'⚙️ Tweak', integration_test:'🔗 Integration' };
     const statusIcon = { queued:'⏳', in_progress:'🔄', passed:'✅', failed:'❌', committed:'📦', awaiting_approval:'👀' };
 
     el.innerHTML = items.map((item, idx) => `
       <div class="queue-item ${item.status}">
-        <div>
-          <span class="q-status ${item.status}">${statusIcon[item.status] || ''} ${item.status.replace('_',' ')}</span>
-        </div>
+        <div><span class="q-status ${item.status}">${statusIcon[item.status]||''} ${item.status.replace(/_/g,' ')}</span></div>
         <div>
           <div>
-            <span class="q-type ${item.type}">${typeLabel[item.type] || item.type}</span>
+            <span class="q-type-tag ${item.type}">${typeLabel[item.type]||item.type}</span>
             <span class="q-title">${item.title}</span>
           </div>
           <div class="q-desc">${item.description}</div>
-          ${item.result ? `<div class="q-result ${item.result.includes('✅') ? 'pass' : 'fail'}">${item.result}</div>` : ''}
+          ${item.result ? `<div class="q-result ${item.result.includes('✅')?'pass':'fail'}">${item.result}</div>` : ''}
         </div>
-        <div class="q-runs">
-          Runs: ${item.runs_used}/${item.runs_budget}<br>
-          <span style="font-size:10px;opacity:0.6">#${idx+1}</span>
-        </div>
-      </div>`
-    ).join('');
+        <div class="q-runs">Runs ${item.runs_used}/${item.runs_budget}<br><span style="opacity:0.5;font-size:10px">#${idx+1}</span></div>
+      </div>`).join('');
   }
 
+  // ── Approvals ──
   async function loadApprovals() {
     const approvals = await fetchJSON('/approvals');
-    const list = document.getElementById('approvals-list');
+    const list  = document.getElementById('approvals-list');
     const empty = document.getElementById('approvals-empty');
-
-    if (!approvals.length) {
-      empty.style.display = 'block';
-      list.innerHTML = '';
-      return;
-    }
 
     const pending = approvals.filter(a => a.status === 'pending');
     const decided = approvals.filter(a => a.status !== 'pending');
-
     empty.style.display = pending.length ? 'none' : 'block';
-    if (!pending.length) empty.textContent = 'No tweaks pending approval. CopperClaw is running the iteration loop.';
 
     list.innerHTML = [...pending, ...decided].map(a => {
       const isPending = a.status === 'pending';
-      const nd = a.network_delta;
-      const cd = a.coldstart_delta;
-      const pd = a.power_delta;
-
-      const deltaColor = v => v > 0 ? 'positive' : v < 0 ? 'negative' : 'neutral';
-      const networkColor = nd > 0 ? 'positive' : 'negative';
-      const coldColor = cd < 0 ? 'positive' : 'negative'; // negative latency = good
-
+      const nd = a.network_delta, cd = a.coldstart_delta, pd = a.power_delta;
       return `
         <div class="approval-card ${a.status}" id="approval-${a.id}">
           <div class="approval-header">
             <div class="approval-title">📦 ${a.tweak_name}</div>
-            <div class="approval-status ${a.status}">${a.status.toUpperCase()}</div>
+            <span class="badge ${a.status==='pending'?'badge-yellow':a.status==='approved'?'badge-green':'badge-red'}">
+              ${a.status.toUpperCase()}
+            </span>
           </div>
           <div class="approval-desc">${a.description}</div>
           <div class="approval-deltas">
             <div class="delta-box">
               <div class="d-label">🌐 Network</div>
-              <div class="d-val ${networkColor}">${nd >= 0 ? '+' : ''}${nd}%</div>
+              <div class="d-val ${nd>0?'d-pos':nd<0?'d-neg':'d-neu'}">${nd>=0?'+':''}${nd}%</div>
               <div class="d-sub">${a.network_baseline} → ${a.network_tuned} Mbit/s</div>
             </div>
             <div class="delta-box">
               <div class="d-label">⚡ Cold-Start</div>
-              <div class="d-val ${coldColor}">${cd >= 0 ? '+' : ''}${cd}%</div>
+              <div class="d-val ${cd<0?'d-pos':cd>0?'d-neg':'d-neu'}">${cd>=0?'+':''}${cd}%</div>
               <div class="d-sub">${a.coldstart_baseline}ms → ${a.coldstart_tuned}ms</div>
             </div>
             <div class="delta-box">
               <div class="d-label">🔋 Power Delta</div>
-              <div class="d-val ${deltaColor(pd)}">${pd >= 0 ? '+' : ''}${pd}W</div>
+              <div class="d-val d-neu">${pd>=0?'+':''}${pd}W</div>
               <div class="d-sub">idle change</div>
             </div>
           </div>
           <div class="approval-meta">
-            Runs: ${a.runs} paired · Preset target: v${a.target_version} · Submitted: ${new Date(a.submitted_at).toLocaleString()}
-            ${a.decided_at ? ` · Decided: ${new Date(a.decided_at).toLocaleString()}` : ''}
+            Runs: ${a.runs} paired &middot; Target: v${a.target_version} &middot;
+            Submitted: ${new Date(a.submitted_at).toLocaleString()}
+            ${a.decided_at ? ` &middot; Decided: ${new Date(a.decided_at).toLocaleString()}` : ''}
           </div>
           ${isPending ? `
           <div class="approval-buttons">
-            <button class="btn btn-approve" onclick="decide('${a.id}', 'approved')">✅ Approve — Add to Preset Stack</button>
-            <button class="btn btn-reject"  onclick="decide('${a.id}', 'rejected')">❌ Reject</button>
+            <button class="btn btn-approve" onclick="decide('${a.id}','approved')">✅ Approve</button>
+            <button class="btn btn-reject"  onclick="decide('${a.id}','rejected')">❌ Reject</button>
           </div>` : ''}
         </div>`;
     }).join('');
   }
 
   async function decide(id, decision) {
-    const btns = document.querySelectorAll(`#approval-${id} .btn`);
-    btns.forEach(b => b.disabled = true);
+    document.querySelectorAll(`#approval-${id} .btn`).forEach(b => b.disabled = true);
     await fetch(API + '/approvals/decide', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({id, decision})
     });
     await loadApprovals();
     await loadComms();
   }
 
+  // ── Comms ──
   async function loadComms() {
     const entries = await fetchJSON('/comms');
     const el = document.getElementById('comms-feed');
-    if (!entries.length) {
-      el.innerHTML = '<div style="color:var(--text-dim);padding:8px">No comms yet</div>';
-      return;
-    }
-    const colorMap = { 'CopperClaw':'copper','Claude':'blue','Connor':'green','System':'info','Research':'blue','Filesystem':'yellow' };
+    if (!entries.length) { el.innerHTML = '<div class="empty">No comms yet</div>'; return; }
+    const colorMap = { CopperClaw:'copper', Claude:'blue', Connor:'green', System:'', Vega:'purple', Research:'blue' };
     el.innerHTML = entries.map(e => {
-      const ts = new Date(e.ts).toLocaleTimeString();
-      const date = new Date(e.ts).toLocaleDateString();
-      const color = colorMap[e.from] || 'info';
-      const fromClass = ['CopperClaw','Claude','Connor','System'].includes(e.from) ? e.from : '';
+      const ts    = new Date(e.ts).toLocaleTimeString();
+      const date  = new Date(e.ts).toLocaleDateString();
+      const color = colorMap[e.from] || '';
       return `
         <div class="comms-entry ${color}">
-          <div class="comms-from ${fromClass}">${e.from}</div>
-          <div class="comms-body">
+          <div class="comms-from ${['CopperClaw','Claude','Connor','System','Vega'].includes(e.from)?e.from:''}">${e.from}</div>
+          <div style="flex:1;min-width:0">
             <div class="comms-msg">
-              <span class="type-badge type-${e.type}">${e.type}</span>
-              ${e.msg}
+              <span class="type-badge type-${e.type}">${e.type}</span>${e.msg}
             </div>
-            <div class="comms-meta">→ ${e.to} · ${date} ${ts}</div>
+            <div class="comms-meta">→ ${e.to} &middot; ${date} ${ts}</div>
           </div>
         </div>`;
     }).join('');
   }
 
+  // ── Refresh all ──
   async function refreshAll() {
     try {
-      await Promise.all([loadStatus(), loadTasks(), loadMemory(), loadLogs(), loadComms(), loadApprovals(), loadQueue()]);
+      await Promise.all([
+        loadStatus(), loadTasks(), loadMemory(),
+        loadLogs(), loadComms(), loadApprovals(), loadQueue()
+      ]);
       document.getElementById('last-refresh').textContent =
         `Last refreshed: ${new Date().toLocaleTimeString()} · Auto-refreshes every 15s`;
     } catch(e) {
-      document.getElementById('last-refresh').textContent = `Error: ${e.message}`;
+      setAvatarState('offline');
+      document.getElementById('last-refresh').textContent = `⚠ Offline: ${e.message}`;
     }
   }
 
