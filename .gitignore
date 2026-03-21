@@ -4,18 +4,21 @@ logs/
 .env.local
 *.env
 
-# CopperClaw runtime files — not for public repo
+# CopperClaw operational files — not for public repo
+router.py
+CLAUDE-TASK-v1.4.md
+references/AGENTS-FULL.md
 dashboard/comms.jsonl
 dashboard/run_complete.json
 dashboard/processed_approvals.json
 dashboard/approvals.json
 dashboard/work_queue.json
-CLAUDE-TASK-v1.4.md
 
 # CopperClaw private memory — never commit
 AGENTS.md
 SOUL.md
 MEMORY.md
+.MEMORY.md
 USER.md
 HEARTBEAT.md
 IDENTITY.md
