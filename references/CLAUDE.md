@@ -5,6 +5,14 @@
 **Status:** Fast Iteration Mode active (daily / every 2–3 days cadence)
 **Active Collaborators:** Claude (Lead Dev) · OpenClaw (async execution while founder is away)
 
+## Tool Error Handling (Important)
+**If a tool call returns a JSON parse error or malformed response:**
+1. **Retry once immediately** — network hiccups are real
+2. **If retry fails:** escalate to Copper with the full error message
+3. **Do NOT guess or work around** — structured data errors need transparency
+
+This keeps debugging fast and prevents silent corruption of work_queue.json, hardware-profiles.json, etc.
+
 ## North Star
 AI-guided self-improving OS + decentralized data→reward loop (DePIN style) for all crypto miners and beyond.
 Data moat first. Execution discipline enforced.
