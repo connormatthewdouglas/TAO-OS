@@ -83,6 +83,8 @@ Current cold-start benchmark measures average over 5 calls. Validators see **tai
 - [ ] Verify wrapper works cleanly on a fresh git clone (no assumptions about prior state)
 - [ ] tao-forge: confirm SELECT (read) policy works for public status pull
 - [ ] Write a one-page "what TAO-OS does to your system" plain-English explainer for external testers
+- [ ] **Branding & Naming Review:** Lock final project name (ForgeOS leading candidate) that supports broader DePIN/AI-OS vision. Execute rename in one clean commit at v1.5 gate. Update GitHub repo name, README, all script references.
+- [ ] **Audience scope review:** Evaluate broadening tool positioning to all crypto miners (not just Bittensor). Tool already works generically — confirm with 1-2 non-TAO mining runs.
 
 ---
 

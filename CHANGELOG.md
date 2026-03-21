@@ -81,3 +81,9 @@
 | Network throughput (WAN sim) | 171 Mbit/s | **1181.9 Mbit/s** | **+591%** | tcp_rmem/wmem ceiling fix |
 | Cold-start latency | 2461.6ms | 2095.5ms | **-14.87%** | CPU governor + C-states |
 | Sustained inference (warm) | 19.59 tok/s | 20.47 tok/s | **+4.49%** | CPU governor |
+
+### Approved tweak — 2026-03-20
+- `vm.min_free_kbytes=262144`: Keeps 256MB memory headroom available during model load. Prevents kernel from reclaiming pages mid-inference, reducing cold-start jitter. Research-backed v0.8 candidate (Benjamin's list).
+  - Network: +766.0%
+  - Cold-start: -1.6%
+  - Power: +0.2W

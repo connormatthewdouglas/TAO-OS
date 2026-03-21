@@ -1,27 +1,47 @@
 # TAO-OS — Claude Orientation File
 
-**Last updated:** 2026-03-19
+**Last updated:** 2026-03-20
 **Founder:** Frosty Condor (@frostycondor)
 **Status:** Fast Iteration Mode active (daily / every 2–3 days cadence)
+**Active Collaborators:** Claude (Lead Dev) · OpenClaw (async execution while founder is away)
 
 ## North Star
-Miners run TAO-OS → submit optimizations → validators score → best improvements win TAO → entire network gets a better OS → closed self-improving loop.
+AI-guided self-improving OS + decentralized data→reward loop (DePIN style) for all crypto miners and beyond.
+Data moat first. Execution discipline enforced.
+
+Miners run TAO-OS → submit optimizations → benchmarks measure deltas → AI builds perfect OS → rewards distributed → more miners join → more data → better OS. Closed self-improving loop.
 
 We stay in self-validation phase until we have undeniable proof.
 
 ## Project Purpose
-AI-optimized Linux for Bittensor miners, validators, and beyond.
+AI-optimized Linux for crypto miners (Bittensor primary; Kaspa, ETC, Monero, etc. Phase 2+).
 Primary subnet target: **SN64 Chutes** ("the Linux of AI").
 Hardware philosophy: break NVIDIA dependency — develop and test on AMD CPU + Intel Arc GPU.
+
+**Strategic framing:** This is a *data problem*. Hardware → tweaks → measured deltas → AI builds perfect OS.
+The tao-forge schema is the true moat. DePIN-style incentive layer is the long-term goal (post-v1.5).
+Broader crypto-mining gives AI the hardware diversity it needs for a 10x addressable market.
+
+## Rebrand (Private — Locked Until v1.5)
+- Public name stays **TAO-OS** until v1.5 gate (zero external users = perfect window to rename)
+- Private shortlist winner: **ForgeOS** (keeps forge equity, chain-agnostic, premium signal)
+- Do NOT touch public branding before v1.5 gate
+- Action-plan.md should include a branding review line for the v1.5 milestone
 
 ## Current Phase
 **Self-testing on Frosty's personal fleet only.**
 No external sharing, no public testers until v1.5 gate (see Roadmap).
 Fleet: Arc A750 rig (primary) · RX 580 machine · laptops + all-in-one · 1-2 trusted friends' PCs
 
+## OpenClaw Integration
+OpenClaw is online as an async execution agent — handles development tasks while founder is away from desk.
+- OpenClaw takes direction from this CLAUDE.md and from Claude's lead-dev decisions
+- Claude remains Lead Dev; OpenClaw executes
+- Both agents must respect all versioning and design rules in this file
+
 ## Current Live Scripts (never overwrite old versions — always increment)
-- `tao-os-full-test-v1.0.sh`          ← Main one-command wrapper
-- `tao-os-presets-v0.5.sh`            ← 14 reversible tweaks
+- `tao-os-full-test-v1.3.sh`          ← Main one-command wrapper (current)
+- `tao-os-presets-v0.7.sh`            ← 25 reversible tweaks (current)
 - `benchmark-v0.9-paired.sh`          ← Paired CPU benchmark
 - `benchmark-inference-v0.1.sh`       ← Sustained throughput
 - `benchmark-inference-v0.2.sh`       ← Cold-start latency (key for mining)
@@ -41,6 +61,13 @@ Fleet: Arc A750 rig (primary) · RX 580 machine · laptops + all-in-one · 1-2 t
 - Starts with Frosty's Arc A750 rig
 - Long-term: AI gives instant, offline-optimized presets for any new machine
 - Core subnet asset — treat with care, never overwrite blindly
+- **v1.4 schema enhancements (mandatory, ship after power bug fix):**
+  - `hardware_fingerprint_hash` — hardware-bound anti-gaming field
+  - `stability_flag` — marks runs where presets caused instability
+  - `power_idle_baseline_w` / `power_tuned_w` — split power fields (replaces null-buggy single field)
+  - `thermal_headroom_c` — headroom above throttle threshold at test time
+  - `kernel_version` — kernel string at time of run
+  - `distro` — OS/distro name and version
 
 ## Three Benchmark Tools — Keep Them Separate from Presets
 
@@ -64,65 +91,41 @@ Fleet: Arc A750 rig (primary) · RX 580 machine · laptops + all-in-one · 1-2 t
 - Forces model unload between calls (`keep_alive=0s`), 15s GPU idle gap
 - Measures `load_duration` + `prompt_eval_duration` (TTFT) — what validators wait for
 - GPU idles to 600 MHz between calls without preset; 2000 MHz with preset
-- Result: **1023.6ms → 1001.1ms (-2.19%, -22ms per request)**
+- Result: **-22–27ms per request** across fleet
 
 ### 3. Network Benchmark (`benchmark-network-v0.1.sh`)
 - Uses `tc netem` on loopback: 50ms RTT + 0.5% loss (simulates WAN)
 - Compares CUBIC vs BBR + 16MB buffers via iperf3
-- Result: **169.2 → 384.4 Mbit/s (+127%)**
 - Root cause: 212KB default socket buffer is smaller than BDP (2.4MB at 50ms RTT)
 - Impact: 2.3x faster chain sync, model weight delivery, Bittensor gossip
 
-## Preset Applicator (`tao-os-presets-v0.5.sh`)
+## Preset Applicator (`tao-os-presets-v0.7.sh`)
 **Purpose:** Apply temporary mining-tuned OS settings. Fully reversible.
 - `--apply-temp`: applies tweaks, backs up original state
 - `--undo`: reverts to saved state
-- `--dry-run`: show what would change without applying (add to all new versions)
+- `--dry-run`: show what would change without applying
 
-**Current version v0.5 tweaks (14 total):**
-- CPU governor → performance
-- Energy performance preference → performance
-- Net buffers: rmem_max + wmem_max → 16MB
-- TCP congestion control → BBR + fq
-- TCP slow start after idle → disabled
-- Scheduler autogroup → disabled
-- vm.swappiness → 10
-- NMI watchdog → disabled
-- GPU SLPC: efficiency hints ignored
-- GPU min freq → 2000 MHz (prevents 600 MHz idle drop)
-- GPU boost freq → 2400 MHz
-- CPU C2 idle state → disabled (18μs latency)
-- CPU C3 idle state → disabled (350μs latency)
-- Transparent Huge Pages → always
+**Current version v0.7 tweaks (25 total)** — see script for full list.
+Core categories: CPU governor · energy preference · net buffers · TCP (BBR/fq) · scheduler ·
+swappiness · NMI watchdog · GPU SLPC · GPU min/boost freq · C2/C3 disable · THP
 
-## Proven Results (as of v0.5 presets)
-| Benchmark | Baseline | Tuned | Delta | What it validates |
-|-----------|---------|-------|-------|------------------|
-| Cold-start latency | 1023.6ms | 1001.1ms | **-2.19%** | GPU min-freq preset |
-| Network throughput (WAN sim) | 169.2 Mbit/s | 384.4 Mbit/s | **+127%** | BBR + 16MB buffers |
-| Sustained inference (warm) | 68.75 tok/s | 68.07 tok/s | -0.98% (flat) | expected — GPU-bound |
-
-## Personal Data History (5 runs, 2026-03-18)
-| Run | Network delta | Cold-start delta | Power delta |
-|-----|--------------|-----------------|-------------|
-| 1   | +124%        | -2.19%          | N/A         |
-| 2   | +110%        | -2.15%          | N/A         |
-| 3   | +111%        | -1.21%          | +8.4W       |
-| 4   | +55% (CUBIC anomaly — high baseline) | -1.41% | +5.7W |
-| 5   | +123%        | ~-0.7%          | varies (thermal) |
-
-Key observations:
-- Network: BBR holds 380-390 Mbit/s consistently; CUBIC variance 140-248 Mbit/s skews delta
-- Cold-start: consistent -1 to -2.2% direction across all runs — GPU freq lock confirmed
-- Sustained inference: noisy within long sessions (thermal drift between baseline/tuned passes)
-- Power: real +5-8W cost when system is at normal operating temperature
+## Proven Results (as of v0.7 presets, multi-machine)
+| Machine | Benchmark | Delta | Notes |
+|---------|-----------|-------|-------|
+| Arc A750 rig | Network throughput (WAN sim) | **+454–616%** | BBR + 16MB buffers |
+| Arc A750 rig | Cold-start latency | **-22–27ms** | GPU freq lock |
+| FX-8350 rig | Network throughput (WAN sim) | **+591%** | BBR + 16MB buffers |
+| FX-8350 rig | Cold-start latency | **-366–395ms** | C-state + CPU preset |
+| Any rig | Sustained inference (warm) | ~flat | Expected — GPU-bound |
 
 ## Known Limitations
 **Vulkan backend (ollama 0.18.1) instability on Arc A750:**
 - tinyllama (1.1B): works, 69-77 tok/s
 - llama3.2:3b (3B): garbled output (Vulkan fp16 precision bug)
 - mistral:7b (7B): crashes with `Assertion 'found' failed` (NaN logits in sampler)
-→ Path forward: Intel SYCL/OpenVINO backend (llama.cpp built with SYCL) — parked until v1.5
+→ Path forward: Intel SYCL/OpenVINO backend — parked until v1.5
+
+**Current Active Bug:** `power_idle_tuned_w` returns null in wrapper (turbostat capture fails post-C-state disable). This is the Phase 1 gate blocker.
 
 ## Version History
 - benchmark-v0.1/v0.2: tweaks baked in (don't use as baseline)
@@ -138,28 +141,38 @@ Key observations:
 - tao-os-presets-v0.2: + net buffers
 - tao-os-presets-v0.3: + scheduler, BBR, swappiness, NMI, C-states, THP, GPU freq
 - tao-os-presets-v0.4: dropped CPU min-freq lock (caused thermal regression)
-- tao-os-presets-v0.5: current — all v0.4 tweaks + GPU SLPC, min/boost freq, C2/C3, THP
+- tao-os-presets-v0.5: all v0.4 tweaks + GPU SLPC, min/boost freq, C2/C3, THP
+- tao-os-presets-v0.6: intermediate
+- tao-os-presets-v0.7: current — 25 tweaks
+- tao-os-full-test-v1.0.sh: first wrapper
+- tao-os-full-test-v1.3.sh: current wrapper with turbostat power logging
 
 ## Active Roadmap
 
-### COMPLETED — Day 1-3
+### COMPLETED
 - [x] Fix hardcoded `SP="2633"` → prompt once, export `TAO_SUDO_PASS`
-- [x] Rewrite README — lead with +127% network win
-- [x] Create `tao-os-full-test-v1.0.sh` — single command wrapper
+- [x] Rewrite README — lead with network win
+- [x] Create wrapper (`tao-os-full-test-v1.3.sh`)
 - [x] Add `CHANGELOG.md`
-- [x] 5 full wrapper runs, data history documented
+- [x] Multi-machine fleet runs documented
 - [x] Add turbostat power draw logging
+- [x] tao-forge auto-submit live
+- [x] `docs/action-plan.md` — full phased roadmap
 
-### CURRENT — Self-Fleet Testing (Day 4+)
-1. Run full-test wrapper on every fleet machine, log to hardware-profiles.json
-2. Presets v0.6 queued tweaks: Hugepages + NUMA pinning · AMD CPB toggle · SYCL env vars for Arc stability · IRQ affinity
-3. Test each new tweak ≥2× on founder's machine before fleet rollout
+### PHASE 1 — CURRENT BLOCKER FIRST
+1. **Fix power bug** — `power_idle_tuned_w` null (turbostat capture fails post-C-state disable)
+2. **Implement v1.4 schema** — hardware_fingerprint_hash + stability_flag + split power fields + thermal_headroom_c + kernel_version + distro
+3. **Add branding review line** to action-plan.md (at v1.5 milestone)
+4. **Complete self-fleet runs** — log all machines to hardware-profiles.json
 
 ### EXTERNAL VALIDATION GATE — v1.5 "Proven & Trusted Fleet"
 **Trigger:** 5+ external miners + clean safety record + documented ≥1.5% average mining/inference gain
 - Do NOT share publicly or solicit external testers before this gate
+- Rebrand review (ForgeOS) happens here
 
-### PARKED — after v1.5 gate clears
+### PHASE 2+ — After v1.5 Gate
+- Broader crypto-mining test (Kaspa, ETC, Monero rigs)
+- DePIN/incentive layer exploration (Hivemapper/Helium model — NOT a new L1)
 - Intel SYCL backend → stable 7B+ inference on Arc
 - Batched inference benchmark (real mining request cadence)
 - SN64 Chutes live validator test
@@ -176,8 +189,10 @@ Key observations:
 - Target AMD CPU + Intel Arc first — NVIDIA is not the primary focus.
 - Keep scripts simple, readable bash — no complex dependencies.
 - **Complexity Kill Switch:** if >1 new package required or logic becomes confusing → simplify or drop.
-- No YouTube channel, no second autonomous agent (OpenClaw) — stay lean.
+- No DePIN/incentive work until post-v1.5.
+- No YouTube channel.
 
 ## Kill Switches
-- If v1.0 wrapper is confusing after 30 min → drop back to separate scripts
+- If wrapper is confusing after 30 min → drop back to separate scripts
 - If SYCL work exceeds 1 day → park it; v1.5 gate comes first
+- If DePIN/incentive scope creeps before v1.5 → cut it

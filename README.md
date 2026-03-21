@@ -2,6 +2,47 @@
 
 **AI-optimized Linux for Bittensor miners. One command. Measurable results.**
 
+---
+
+## 🤖 AI Collaborators
+
+This repo is worked on by two AIs. Here's who owns what:
+
+### 🟡 Claude (Lead Dev)
+| File/Dir | Purpose |
+|---|---|
+| `CLAUDE.md` | Claude's orientation + project context |
+| `.claude/` | Claude Code settings & permissions |
+| `benchmarks/` | Benchmark scripts |
+| `docs/` | White paper, action plan |
+| `archive/` | Historical data |
+| `logs/` | Runtime logs |
+| `tao-os-*.sh` | Preset + test scripts |
+| `tao-forge-status.sh` | Forge status reporter |
+| `setup-intel-arc.sh` | Hardware setup |
+
+### 🟤 CopperClaw (Async Assistant — OpenClaw)
+| File/Dir | Purpose |
+|---|---|
+| `AGENTS.md` | CopperClaw runtime instructions |
+| `SOUL.md` | CopperClaw personality/values |
+| `IDENTITY.md` | Who CopperClaw is |
+| `USER.md` | Notes about Connor |
+| `MEMORY.md` | CopperClaw long-term memory |
+| `HEARTBEAT.md` | Periodic task checklist |
+| `TOOLS.md` | Local environment notes |
+| `.openclaw/` | OpenClaw runtime config |
+| `memory/copper/` | CopperClaw daily session logs |
+
+### 📦 Shared
+| File/Dir | Purpose |
+|---|---|
+| `README.md` | This file |
+| `CHANGELOG.md` | Project changelog |
+| `.git/` | Version control |
+
+---
+
 ```bash
 git clone https://github.com/connormatthewdouglas/TAO-OS.git
 cd TAO-OS

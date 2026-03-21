@@ -1,3 +1,24 @@
 # Ignore personal/output files
 *.txt
 logs/
+.env.local
+*.env
+
+# CopperClaw runtime files — not for public repo
+dashboard/comms.jsonl
+dashboard/run_complete.json
+dashboard/processed_approvals.json
+dashboard/approvals.json
+dashboard/work_queue.json
+CLAUDE-TASK-v1.4.md
+
+# CopperClaw private memory — never commit
+AGENTS.md
+SOUL.md
+MEMORY.md
+USER.md
+HEARTBEAT.md
+IDENTITY.md
+TOOLS.md
+memory/
+.openclaw/
