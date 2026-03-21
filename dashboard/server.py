@@ -11,6 +11,7 @@ from pathlib import Path
 
 WORKSPACE = Path.home() / "TAO-OS"
 PORT = 7420
+AUTORUN_STATE_FILE = Path(__file__).parent / "autorun.json"
 
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -21,6 +22,11 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = json.loads(self.rfile.read(length))
             result = handle_approval(body.get("id"), body.get("decision"))
+            self.serve_json(result)
+        elif self.path == "/api/autorun":
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length))
+            result = set_autorun(body.get("enabled", False))
             self.serve_json(result)
         else:
             self.send_response(404)
@@ -43,6 +49,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.serve_json(get_approvals())
         elif self.path == "/api/queue":
             self.serve_json(get_queue())
+        elif self.path == "/api/autorun":
+            self.serve_json(get_autorun())
         else:
             self.send_response(404)
             self.end_headers()
@@ -185,6 +193,31 @@ def get_queue():
         return json.loads(f.read_text())
     except:
         return []
+
+def get_autorun():
+    """Get current autorun state"""
+    try:
+        return json.loads(AUTORUN_STATE_FILE.read_text())
+    except:
+        return {"enabled": False, "updated_at": None}
+
+def set_autorun(enabled):
+    """Set autorun state and persist to disk"""
+    try:
+        state = {
+            "enabled": enabled,
+            "updated_at": datetime.now().isoformat()
+        }
+        AUTORUN_STATE_FILE.write_text(json.dumps(state, indent=2))
+        
+        # Log to comms
+        status = "🟢 ENABLED" if enabled else "🔴 DISABLED"
+        msg = f"Autorun {status} — benchmarks will {'continue' if enabled else 'stop'} after completion"
+        log_comms("Connor", "CopperClaw", "directive", msg)
+        
+        return {"ok": True, "enabled": enabled}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 def get_approvals():
     """Read pending tweak approvals"""

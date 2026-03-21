@@ -504,6 +504,51 @@
     .btn:active { transform: scale(0.97); }
     .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 
+    /* ─── TOGGLE SWITCH ─── */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 28px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--surface3);
+      transition: all 0.3s;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--text-muted);
+      transition: all 0.3s;
+      border-radius: 50%;
+    }
+    input:checked + .toggle-slider {
+      background: linear-gradient(135deg, #2d8f3c, #39d353);
+      border-color: rgba(57,211,83,0.5);
+      box-shadow: 0 0 12px rgba(57,211,83,0.25);
+    }
+    input:checked + .toggle-slider:before {
+      transform: translateX(24px);
+      background-color: #000;
+    }
+
     .btn-approve {
       background: linear-gradient(135deg, #2d8f3c, #39d353);
       color: #000;
@@ -831,6 +876,16 @@
           <div class="budget-bar" id="budget-bar" style="width:0%"></div>
         </div>
       </div>
+      <div style="margin:16px 0;padding:12px;background:rgba(184,115,51,0.08);border-radius:var(--radius-sm);border:1px solid var(--copper-dim);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">Auto-Benchmark</div>
+          <div style="font-size:10px;color:var(--text-dim);margin-top:2px">When ON: runs next queued test after completion</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="autorun-toggle" onchange="handleAutorunToggle()" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
       <div class="queue-list" id="queue-list">
         <div class="empty">Loading…</div>
       </div>
@@ -1031,6 +1086,15 @@
     const el      = document.getElementById('queue-list');
     const counter = document.getElementById('queue-counter');
 
+    // Load autorun state
+    try {
+      const autorun = await fetchJSON('/autorun');
+      const toggle = document.getElementById('autorun-toggle');
+      toggle.checked = autorun.enabled || false;
+    } catch(e) {
+      console.log('Could not load autorun state:', e.message);
+    }
+
     if (!items.length) { el.innerHTML = '<div class="empty">Queue empty</div>'; return; }
 
     const runsUsed = items.reduce((s, i) => s + (i.runs_used || 0), 0);
@@ -1145,6 +1209,36 @@
           </div>
         </div>`;
     }).join('');
+  }
+
+  // ── Autorun Toggle ──
+  async function handleAutorunToggle() {
+    const checkbox = document.getElementById('autorun-toggle');
+    const isEnabled = checkbox.checked;
+    
+    try {
+      const response = await fetch(API + '/autorun', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: isEnabled })
+      });
+      const result = await response.json();
+      
+      if (result.ok) {
+        console.log(`Autorun ${isEnabled ? 'enabled' : 'disabled'}`);
+        // Log to comms
+        const msg = isEnabled 
+          ? "🟢 AUTORUN ENABLED — will queue next benchmark after current run completes"
+          : "🔴 AUTORUN DISABLED — benchmarks will stop after completion";
+        console.log(msg);
+      } else {
+        checkbox.checked = !isEnabled; // revert on error
+        alert('Failed to update autorun setting: ' + result.error);
+      }
+    } catch(e) {
+      checkbox.checked = !isEnabled; // revert on error
+      alert('Error updating autorun: ' + e.message);
+    }
   }
 
   // ── Refresh all ──
