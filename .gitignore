@@ -8,6 +8,12 @@ logs/
 router.py
 CLAUDE-TASK-v1.4.md
 references/AGENTS-FULL.md
+references/CLAUDE.md
+LEARNING.md
+LEARNING_CYCLE.md
+.cron/
+scripts/
+benchmarks/*.log
 dashboard/comms.jsonl
 dashboard/run_complete.json
 dashboard/processed_approvals.json
