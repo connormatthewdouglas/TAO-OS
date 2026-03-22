@@ -32,6 +32,9 @@ TOOLS.md
 memory/
 .openclaw/
 
+# Agent infrastructure — openclaw-specific, not for public repo
+agents/
+
 # Brain files — local experiments, not project code
 CLAUDE_SESSION.md
 dashboard/session_watchdog.py
