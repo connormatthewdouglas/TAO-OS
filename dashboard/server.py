@@ -9,12 +9,16 @@ import re
 import signal
 import subprocess
 import time
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
 WORKSPACE = Path.home() / "TAO-OS"
 PORT = 7420
 AUTORUN_STATE_FILE = Path(__file__).parent / "autorun.json"
+
+SUPABASE_URL = "https://iovvktpuoinmjdgfxgvm.supabase.co"
+SUPABASE_KEY = "sb_publishable_4WefsfMl0sNNo9O2c_lxnA_q2VQ01jn"
 
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -58,6 +62,10 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.serve_json(get_queue())
         elif self.path == "/api/autorun":
             self.serve_json(get_autorun())
+        elif self.path == "/api/forge-runs":
+            self.serve_json(get_forge_runs())
+        elif self.path == "/api/spend":
+            self.serve_json(get_spend())
         else:
             self.send_response(404)
             self.end_headers()
@@ -252,6 +260,68 @@ def get_benchmarks():
             results.append({"file": Path(log).name, "error": str(e)})
     results.sort(key=lambda x: x.get("mtime", 0), reverse=True)
     return results
+
+
+def get_spend():
+    """Return today's estimated cloud spend from spend_monitor state file."""
+    state = Path(__file__).parent / "spend_state.json"
+    try:
+        return json.loads(state.read_text())
+    except:
+        return {"estimated_usd": None, "cap_usd": 2.00, "error": "no data yet"}
+
+
+def get_forge_runs():
+    """Fetch all machines + runs from tao-forge Supabase database."""
+    def sb_get(table, params=""):
+        url = f"{SUPABASE_URL}/rest/v1/{table}?{params}"
+        req = urllib.request.Request(url, headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=8) as r:
+                return json.loads(r.read())
+        except Exception as e:
+            return {"error": str(e)}
+
+    machines = sb_get("machines", "order=created_at.asc")
+    runs     = sb_get("runs",     "order=created_at.asc")
+
+    if isinstance(machines, dict) and "error" in machines:
+        return {"error": machines["error"], "machines": []}
+    if isinstance(runs, dict) and "error" in runs:
+        return {"error": runs["error"], "machines": []}
+
+    result = []
+    for m in machines:
+        m_runs = [r for r in runs if r.get("machine_id") == m.get("machine_id")]
+        result.append({
+            "machine_id": m.get("machine_id"),
+            "cpu":        m.get("cpu"),
+            "gpu":        m.get("gpu"),
+            "os":         m.get("os"),
+            "run_count":  len(m_runs),
+            "runs": [{
+                "run_date":             r.get("run_date"),
+                "preset_version":       r.get("preset_version"),
+                "network_baseline":     r.get("network_baseline_mbit"),
+                "network_tuned":        r.get("network_tuned_mbit"),
+                "network_delta":        r.get("network_delta_pct"),
+                "coldstart_baseline":   r.get("coldstart_baseline_ms"),
+                "coldstart_tuned":      r.get("coldstart_tuned_ms"),
+                "coldstart_delta":      r.get("coldstart_delta_pct"),
+                "sustained_baseline":   r.get("sustained_baseline_toks"),
+                "sustained_tuned":      r.get("sustained_tuned_toks"),
+                "sustained_delta":      r.get("sustained_delta_pct"),
+                "power_baseline":       r.get("power_idle_baseline_w"),
+                "power_tuned":          r.get("power_idle_tuned_w"),
+                "power_delta":          r.get("power_delta_w"),
+                "notes":                r.get("notes"),
+            } for r in m_runs]
+        })
+
+    return {"machines": result, "total_runs": len(runs)}
 
 
 def get_logs():

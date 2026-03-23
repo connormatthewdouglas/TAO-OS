@@ -932,19 +932,10 @@
         </div>
       </div>
 
-      <!-- HARDWARE -->
+      <!-- SPEND MONITOR -->
       <div class="card">
-        <div class="card-title"><span class="ct-icon">🖥</span> Hardware</div>
-        <div id="hardware-info"><div class="empty">Loading…</div></div>
-        <div style="margin-top:10px;font-size:11px;color:var(--text-muted)" id="bench-time"></div>
-      </div>
-
-      <!-- BENCHMARKS -->
-      <div class="card full">
-        <div class="card-title"><span class="ct-icon">📊</span> Latest Benchmark</div>
-        <div class="bench-grid" id="bench-grid">
-          <div class="empty" style="grid-column:1/-1">Loading…</div>
-        </div>
+        <div class="card-title"><span class="ct-icon">💸</span> Cloud Spend Today</div>
+        <div id="spend-body"><div class="empty">Loading…</div></div>
       </div>
 
       <!-- TREND CHART -->
@@ -960,32 +951,17 @@
         </div>
       </div>
 
-      <!-- BENCHMARK HISTORY TABLE -->
+      <!-- TAO-FORGE DATABASE -->
       <div class="card full">
-        <div class="card-title"><span class="ct-icon">🗂</span> Benchmark History <span style="font-weight:400;font-size:11px;color:var(--text-muted);text-transform:none;letter-spacing:0">(last 25 runs)</span></div>
-        <div style="overflow-x:auto">
-          <table id="bench-history" style="width:100%;border-collapse:collapse;font-size:12px">
-            <thead>
-              <tr style="color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">
-                <th style="text-align:left;padding:6px 8px;font-weight:500">Run</th>
-                <th style="text-align:left;padding:6px 8px;font-weight:500">Date</th>
-                <th style="text-align:right;padding:6px 8px;font-weight:500">Net Base</th>
-                <th style="text-align:right;padding:6px 8px;font-weight:500">Net Tuned</th>
-                <th style="text-align:right;padding:6px 8px;font-weight:500">Net Δ</th>
-                <th style="text-align:right;padding:6px 8px;font-weight:500">Cold Base</th>
-                <th style="text-align:right;padding:6px 8px;font-weight:500">Cold Tuned</th>
-                <th style="text-align:right;padding:6px 8px;font-weight:500">Cold Δ</th>
-                <th style="text-align:right;padding:6px 8px;font-weight:500">Inf Δ</th>
-                <th style="text-align:right;padding:6px 8px;font-weight:500">Power Δ</th>
-                <th style="text-align:center;padding:6px 8px;font-weight:500">Stable</th>
-              </tr>
-            </thead>
-            <tbody id="bench-history-body">
-              <tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text-muted)">Loading…</td></tr>
-            </tbody>
-          </table>
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span><span class="ct-icon">🌐</span> tao-forge Database</span>
+          <span id="forge-run-count" style="font-weight:400;font-size:11px;color:var(--text-muted);text-transform:none;letter-spacing:0">Loading…</span>
+        </div>
+        <div id="forge-machines">
+          <div class="empty">Loading…</div>
         </div>
       </div>
+
     </div>
 
     <!-- ── TAB: WORK QUEUE ── -->
@@ -1157,43 +1133,6 @@
         <span class="info-val">${d.next_action}</span>
       </div>`;
 
-    const hw = document.getElementById('hardware-info');
-    if (d.latest_benchmark?.hardware_cpu) {
-      hw.innerHTML = `
-        <div class="hw-badge">🖥 ${d.latest_benchmark.hardware_cpu}</div>
-        <div class="hw-badge">🎮 ${d.latest_benchmark.hardware_gpu || 'GPU N/A'}</div>`;
-    }
-    if (d.latest_benchmark?.log_time)
-      document.getElementById('bench-time').textContent = `Last run: ${d.latest_benchmark.log_time}`;
-
-    const bg = document.getElementById('bench-grid');
-    if (d.latest_benchmark?.network) {
-      const b = d.latest_benchmark;
-      const netDelta = b.network?.delta || 'N/A';
-      const csDelta  = b.coldstart?.delta || 'N/A';
-      const infDelta = b.inference?.delta ? '+' + b.inference.delta : 'N/A';
-      const netNeg   = netDelta.startsWith('-');
-      const csNeg    = !csDelta.startsWith('-'); // latency: negative = good
-      bg.innerHTML = `
-        <div class="bench-item">
-          <div class="b-label">🌐 Network Throughput</div>
-          <div class="b-delta ${netNeg?'neg':''}">${netDelta}</div>
-          <div class="b-sub">${b.network?.baseline} → ${b.network?.tuned} Mbit/s</div>
-        </div>
-        <div class="bench-item">
-          <div class="b-label">⚡ Cold-Start Latency</div>
-          <div class="b-delta ${csNeg?'neg':''}">${csDelta}</div>
-          <div class="b-sub">${b.coldstart?.baseline}ms → ${b.coldstart?.tuned}ms</div>
-        </div>
-        <div class="bench-item">
-          <div class="b-label">🤖 Sustained Inference</div>
-          <div class="b-delta">${infDelta}</div>
-          <div class="b-sub">${b.inference?.baseline} → ${b.inference?.tuned} tok/s</div>
-        </div>`;
-    } else {
-      bg.innerHTML = '<div class="empty" style="grid-column:1/-1">No benchmark data found</div>';
-    }
-
     const cl = document.getElementById('commit-list');
     if (d.git?.recent_commits?.length) {
       cl.innerHTML = d.git.recent_commits.map(c => {
@@ -1203,6 +1142,34 @@
     } else {
       cl.innerHTML = '<div class="empty">No git data</div>';
     }
+  }
+
+  // ── Spend ──
+  async function loadSpend() {
+    const d = await fetchJSON('/spend');
+    const el = document.getElementById('spend-body');
+    if (!d || d.error === 'no data yet') {
+      el.innerHTML = '<div class="empty">No data yet — monitor runs every 30m</div>';
+      return;
+    }
+    const pct = d.pct_of_cap ?? 0;
+    const barColor = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--yellow)' : 'var(--green)';
+    const statusColor = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--yellow)' : 'var(--text-dim)';
+    el.innerHTML = `
+      <div style="font-size:28px;font-weight:700;color:${statusColor};margin-bottom:4px">
+        $${(d.estimated_usd ?? 0).toFixed(3)}
+        <span style="font-size:13px;font-weight:400;color:var(--text-muted)"> / $${d.cap_usd?.toFixed(2)} cap</span>
+      </div>
+      <div style="margin:8px 0 4px;display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted)">
+        <span>${pct}% of daily cap</span>
+        <span>${d.api_calls ?? 0} API calls</span>
+      </div>
+      <div style="height:6px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-bottom:10px">
+        <div style="height:100%;width:${Math.min(pct,100)}%;background:${barColor};border-radius:4px;transition:width 1s ease"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted)">
+        ~${(d.input_tokens/1000).toFixed(0)}k in · ~${(d.output_tokens/1000).toFixed(0)}k out · Haiku · checked ${d.checked_at ? new Date(d.checked_at).toLocaleTimeString() : '—'}
+      </div>`;
   }
 
   // ── Tasks ──
@@ -1405,65 +1372,99 @@
     }).join('');
   }
 
-  // ── Benchmarks ──
+  // ── tao-forge Database + Trend Chart ──
   let trendChart = null;
 
-  function deltaClass(val, invertGood) {
-    if (val === null || val === undefined) return '';
-    return invertGood ? (val < 0 ? 'pos' : val > 0 ? 'neg' : '') : (val > 0 ? 'pos' : val < 0 ? 'neg' : '');
-  }
-  function fmt(val, unit='', decimals=2) {
-    if (val === undefined || val === null) return '—';
-    return val.toFixed(decimals) + unit;
-  }
-  function fmtDelta(val, unit='%') {
-    if (val === undefined || val === null) return '—';
-    return (val >= 0 ? '+' : '') + val.toFixed(2) + unit;
-  }
+  async function loadForgeRuns() {
+    const data = await fetchJSON('/forge-runs');
+    const wrap = document.getElementById('forge-machines');
+    const countEl = document.getElementById('forge-run-count');
 
-  async function loadBenchmarks() {
-    const runs = await fetchJSON('/benchmarks');
-    if (!runs || !runs.length) return;
+    if (!data || data.error) {
+      wrap.innerHTML = `<div class="empty" style="color:var(--red)">${data?.error || 'Failed to load'}</div>`;
+      countEl.textContent = 'error';
+      return;
+    }
 
-    // ── History table ──
-    const tbody = document.getElementById('bench-history-body');
-    tbody.innerHTML = runs.map((r, i) => {
-      const isLatest  = i === 0;
-      const isPrev    = i === 1;
-      const rowStyle  = isLatest ? 'background:rgba(184,115,51,0.08);' : isPrev ? 'background:rgba(116,185,255,0.05);' : '';
-      const badge     = isLatest ? '<span style="font-size:9px;background:rgba(184,115,51,0.2);color:var(--copper-light);padding:1px 5px;border-radius:4px;margin-left:5px">LATEST</span>'
-                      : isPrev   ? '<span style="font-size:9px;background:rgba(116,185,255,0.1);color:var(--blue);padding:1px 5px;border-radius:4px;margin-left:5px">PREV</span>' : '';
-      const nd = r.net_delta, cd = r.cold_delta, id = r.inf_delta, pd = r.power_delta;
-      return `<tr style="border-bottom:1px solid var(--border);${rowStyle}">
-        <td style="padding:6px 8px;color:var(--text-muted)">#${runs.length - i}${badge}</td>
-        <td style="padding:6px 8px;white-space:nowrap">${r.label || r.file}</td>
-        <td style="padding:6px 8px;text-align:right;color:var(--text-dim)">${fmt(r.net_baseline,' Mb',0)}</td>
-        <td style="padding:6px 8px;text-align:right">${fmt(r.net_tuned,' Mb',0)}</td>
-        <td style="padding:6px 8px;text-align:right;font-weight:600;color:${nd>0?'var(--green)':nd<0?'var(--red)':'var(--text-muted)'}">${fmtDelta(nd)}</td>
-        <td style="padding:6px 8px;text-align:right;color:var(--text-dim)">${fmt(r.cold_baseline,'ms',0)}</td>
-        <td style="padding:6px 8px;text-align:right">${fmt(r.cold_tuned,'ms',0)}</td>
-        <td style="padding:6px 8px;text-align:right;font-weight:600;color:${cd<0?'var(--green)':cd>0?'var(--red)':'var(--text-muted)'}">${fmtDelta(cd)}</td>
-        <td style="padding:6px 8px;text-align:right;font-weight:600;color:${id>0?'var(--green)':id<0?'var(--red)':'var(--text-muted)'}">${fmtDelta(id)}</td>
-        <td style="padding:6px 8px;text-align:right;color:${pd>0?'var(--yellow)':'var(--text-muted)'}">${pd!==undefined?(pd>=0?'+':'')+pd.toFixed(1)+'W':'—'}</td>
-        <td style="padding:6px 8px;text-align:center">${r.stable ? '✅' : r.stable===false ? '❌' : '—'}</td>
-      </tr>`;
-    }).join('');
+    countEl.textContent = `${data.total_runs} runs · ${data.machines.length} machines`;
 
-    // ── Trend chart ──
-    const ordered = [...runs].reverse(); // oldest first for chart
-    const labels   = ordered.map(r => r.label || r.file);
-    const netData  = ordered.map(r => r.net_delta  ?? null);
-    const coldData = ordered.map(r => r.cold_delta ?? null);
-    const infData  = ordered.map(r => r.inf_delta  ?? null);
+    if (!data.machines.length) {
+      wrap.innerHTML = '<div class="empty">No machines registered</div>';
+      return;
+    }
+
+    // ── Per-machine run tables ──
+    wrap.innerHTML = data.machines.map(m => {
+      const shortCPU = (m.cpu || 'Unknown CPU').replace(/\(tm\)/gi,'™').replace(/\(r\)/gi,'®');
+      const shortGPU = (m.gpu || 'Unknown GPU').replace(/Advanced Micro Devices.*\[/,'[');
+      const runs = m.runs || [];
+      if (!runs.length) return `
+        <div style="margin-bottom:16px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${shortCPU}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${shortGPU}</div>
+          <div class="empty" style="padding:8px 0 0">No runs yet</div>
+        </div>`;
+
+      const rowsHtml = [...runs].reverse().map((r, i) => {
+        const nd = r.network_delta, cd = r.coldstart_delta, sd = r.sustained_delta, pd = r.power_delta;
+        const isLatest = i === 0;
+        const rowStyle = isLatest ? 'background:rgba(184,115,51,0.08);' : '';
+        const badge = isLatest ? '<span style="font-size:9px;background:rgba(184,115,51,0.2);color:var(--copper-light);padding:1px 5px;border-radius:4px;margin-left:4px">LATEST</span>' : '';
+        return `<tr style="border-bottom:1px solid var(--border);${rowStyle}">
+          <td style="padding:5px 8px;color:var(--text-muted)">#${runs.length - i}${badge}</td>
+          <td style="padding:5px 8px;white-space:nowrap">${r.run_date || '—'}</td>
+          <td style="padding:5px 8px;text-align:center;color:var(--text-dim)">${r.preset_version || '—'}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:600;color:${nd>0?'var(--green)':nd<0?'var(--red)':'var(--text-muted)'}">${nd!=null?(nd>=0?'+':'')+nd.toFixed(1)+'%':'—'}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:600;color:${cd<0?'var(--green)':cd>0?'var(--red)':'var(--text-muted)'}">${cd!=null?(cd>=0?'+':'')+cd.toFixed(2)+'%':'—'}</td>
+          <td style="padding:5px 8px;text-align:right;font-weight:600;color:${sd>0?'var(--green)':sd<0?'var(--red)':'var(--text-muted)'}">${sd!=null?(sd>=0?'+':'')+sd.toFixed(2)+'%':'—'}</td>
+          <td style="padding:5px 8px;text-align:right;color:${pd>0?'var(--yellow)':pd<0?'var(--green)':'var(--text-muted)'}">${pd!=null?(pd>=0?'+':'')+pd.toFixed(1)+'W':'—'}</td>
+        </tr>`;
+      }).join('');
+
+      return `
+        <div style="margin-bottom:20px">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">${shortCPU}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-bottom:8px">${shortGPU} &nbsp;·&nbsp; <span style="color:var(--text-muted)">${m.machine_id}</span></div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr style="color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">
+                  <th style="text-align:left;padding:4px 8px;font-weight:500">Run</th>
+                  <th style="text-align:left;padding:4px 8px;font-weight:500">Date</th>
+                  <th style="text-align:center;padding:4px 8px;font-weight:500">Preset</th>
+                  <th style="text-align:right;padding:4px 8px;font-weight:500">Net Δ</th>
+                  <th style="text-align:right;padding:4px 8px;font-weight:500">Cold Δ</th>
+                  <th style="text-align:right;padding:4px 8px;font-weight:500">Inf Δ</th>
+                  <th style="text-align:right;padding:4px 8px;font-weight:500">Power Δ</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>`;
+    }).join('<hr style="border:none;border-top:1px solid var(--border);margin:4px 0 16px">');
+
+    // ── Trend chart — all runs across all machines, chronological ──
+    const allRuns = data.machines.flatMap(m => {
+      const shortID = (m.cpu || '').replace(/AMD |Intel |™|®/gi,'').replace(/\(.*?\)/g,'').trim().split(' ').slice(0,3).join(' ');
+      return (m.runs || []).map(r => ({ ...r, machineLabel: shortID }));
+    }).sort((a, b) => (a.run_date || '').localeCompare(b.run_date || ''));
+
+    if (!allRuns.length) return;
+
+    const labels   = allRuns.map((r, i) => `${r.run_date} #${i+1}`);
+    const netData  = allRuns.map(r => r.network_delta  ?? null);
+    const coldData = allRuns.map(r => r.coldstart_delta ?? null);
+    const infData  = allRuns.map(r => r.sustained_delta ?? null);
 
     const chartCfg = {
       type: 'line',
       data: {
         labels,
         datasets: [
-          { label: 'Network Δ%',   data: netData,  borderColor: '#74b9ff', backgroundColor: 'rgba(116,185,255,0.08)', tension: 0.3, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 },
-          { label: 'Cold-Start Δ%', data: coldData, borderColor: '#ff4757', backgroundColor: 'rgba(255,71,87,0.08)',   tension: 0.3, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 },
-          { label: 'Inference Δ%',  data: infData,  borderColor: '#39d353', backgroundColor: 'rgba(57,211,83,0.08)',   tension: 0.3, pointRadius: 4, pointHoverRadius: 6, borderWidth: 2 },
+          { label: 'Network Δ%',    data: netData,  borderColor: '#74b9ff', backgroundColor: 'rgba(116,185,255,0.08)', tension: 0.3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2 },
+          { label: 'Cold-Start Δ%', data: coldData, borderColor: '#ff4757', backgroundColor: 'rgba(255,71,87,0.08)',   tension: 0.3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2 },
+          { label: 'Inference Δ%',  data: infData,  borderColor: '#39d353', backgroundColor: 'rgba(57,211,83,0.08)',   tension: 0.3, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2 },
         ]
       },
       options: {
@@ -1474,11 +1475,14 @@
           tooltip: {
             backgroundColor: '#111120', borderColor: '#2a2a44', borderWidth: 1,
             titleColor: '#7070a0', bodyColor: '#e8e8f0',
-            callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y !== null ? (ctx.parsed.y >= 0 ? '+' : '') + ctx.parsed.y.toFixed(2) + '%' : '—'}` }
+            callbacks: {
+              title: items => `${allRuns[items[0].dataIndex]?.run_date} · ${allRuns[items[0].dataIndex]?.machineLabel}`,
+              label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y !== null ? (ctx.parsed.y >= 0 ? '+' : '') + ctx.parsed.y.toFixed(2) + '%' : '—'}`
+            }
           }
         },
         scales: {
-          x: { ticks: { color: '#4a4a70', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(42,42,68,0.5)' } },
+          x: { ticks: { color: '#4a4a70', font: { size: 10 }, maxRotation: 45, callback: (_, i) => allRuns[i]?.run_date }, grid: { color: 'rgba(42,42,68,0.5)' } },
           y: { ticks: { color: '#4a4a70', font: { size: 10 }, callback: v => (v >= 0 ? '+' : '') + v + '%' }, grid: { color: 'rgba(42,42,68,0.5)' }, border: { dash: [4,4] } }
         }
       }
@@ -1556,7 +1560,7 @@
     try {
       await Promise.all([
         loadStatus(), loadTasks(), loadMemory(),
-        loadLogs(), loadComms(), loadApprovals(), loadQueue(), loadBenchmarks(),
+        loadLogs(), loadComms(), loadApprovals(), loadQueue(), loadForgeRuns(), loadSpend(),
         loadBenchmarkProgress()
       ]);
       document.getElementById('last-refresh').textContent =
