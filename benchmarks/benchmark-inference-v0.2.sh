@@ -61,10 +61,14 @@ echo "$_undo_out" | grep -E "Revert|reverted|No backup" | sed 's/^/  /' >> "$LOG
 # have been written when system was already tuned (ratchet bug).
 log "  Hard-resetting CPU governor and GPU freq to defaults..."
 if command -v cpupower &>/dev/null; then
-    echo "$SP" | sudo -S cpupower frequency-set -g schedutil 2>/dev/null \
-        && log "    CPU governor → schedutil" || \
-    echo "$SP" | sudo -S cpupower frequency-set -g powersave 2>/dev/null \
-        && log "    CPU governor → powersave" || true
+    # Try schedutil first (unavailable on amd-pstate-epp — suppress error, fall through)
+    if echo "$SP" | sudo -S cpupower frequency-set -g schedutil >/dev/null 2>&1; then
+        log "    CPU governor → schedutil"
+    elif echo "$SP" | sudo -S cpupower frequency-set -g powersave >/dev/null 2>&1; then
+        log "    CPU governor → powersave"
+    else
+        log "    CPU governor reset failed — check driver ($(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver 2>/dev/null || echo unknown))"
+    fi
 fi
 for card in /sys/class/drm/card*/gt/gt0; do
     [[ -f "$card/rps_min_freq_mhz" ]] && echo "$SP" | sudo -S bash -c "echo 300 > $card/rps_min_freq_mhz" 2>/dev/null \
