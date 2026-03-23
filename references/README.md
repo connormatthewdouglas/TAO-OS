@@ -25,12 +25,10 @@ This repo is worked on by two AIs. Here's who owns what:
 | File/Dir | Purpose |
 |---|---|
 | `AGENTS.md` | CopperClaw runtime instructions |
-| `SOUL.md` | CopperClaw personality/values |
-| `IDENTITY.md` | Who CopperClaw is |
+| `SOUL.md` | CopperClaw personality, values, identity |
 | `USER.md` | Notes about Connor |
 | `MEMORY.md` | CopperClaw long-term memory |
 | `HEARTBEAT.md` | Periodic task checklist |
-| `TOOLS.md` | Local environment notes |
 | `.openclaw/` | OpenClaw runtime config |
 | `memory/copper/` | CopperClaw daily session logs |
 

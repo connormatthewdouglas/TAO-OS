@@ -349,8 +349,8 @@ def get_memory():
     if daily.exists():
         files["today"] = daily.read_text()
 
-    # .MEMORY.md (hidden from auto-load, loaded manually by Copper)
-    mem = WORKSPACE / ".MEMORY.md"
+    # MEMORY.md — Copper's single memory file
+    mem = WORKSPACE / "MEMORY.md"
     if mem.exists():
         files["longterm"] = mem.read_text()
 
