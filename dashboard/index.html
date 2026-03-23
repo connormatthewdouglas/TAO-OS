@@ -938,6 +938,12 @@
         <div id="spend-body"><div class="empty">Loading…</div></div>
       </div>
 
+      <!-- AUTONOMY SCORE -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">🤖</span> Copper Autonomy Score</div>
+        <div id="autonomy-body"><div class="empty">Loading…</div></div>
+      </div>
+
       <!-- TREND CHART -->
       <div class="card full">
         <div class="card-title"><span class="ct-icon">📈</span> Performance Trends — Delta Over Time</div>
@@ -1170,6 +1176,30 @@
       <div style="font-size:10px;color:var(--text-muted)">
         ~${(d.input_tokens/1000).toFixed(0)}k in · ~${(d.output_tokens/1000).toFixed(0)}k out · Haiku · checked ${d.checked_at ? new Date(d.checked_at).toLocaleTimeString() : '—'}
       </div>`;
+  }
+
+  // ── Autonomy Score ──
+  async function loadAutonomy() {
+    const d = await fetchJSON('/autonomy');
+    const el = document.getElementById('autonomy-body');
+    if (!d || d.error) { el.innerHTML = '<div class="empty">No data yet</div>'; return; }
+    const score = d.score ?? 0;
+    const barColor = score >= 80 ? 'var(--green)' : score >= 60 ? 'var(--yellow)' : 'var(--red)';
+    const breakdown = Object.entries(d.breakdown || {})
+      .map(([k,v]) => `<span style="margin-right:10px">${k}: <b>${v}</b></span>`).join('');
+    el.innerHTML = `
+      <div style="font-size:28px;font-weight:700;color:${barColor};margin-bottom:4px">
+        ${d.label}
+        <span style="font-size:13px;font-weight:400;color:var(--text-muted)"> autonomous</span>
+      </div>
+      <div style="margin:8px 0 4px;display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted)">
+        <span>${d.autonomous} autonomous · ${d.reviewed} reviewed</span>
+        <span>${d.total} resolved total</span>
+      </div>
+      <div style="height:6px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-bottom:10px">
+        <div style="height:100%;width:${Math.min(score,100)}%;background:${barColor};border-radius:4px;transition:width 1s ease"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);flex-wrap:wrap">${breakdown}</div>`;
   }
 
   // ── Tasks ──
@@ -1560,7 +1590,7 @@
     try {
       await Promise.all([
         loadStatus(), loadTasks(), loadMemory(),
-        loadLogs(), loadComms(), loadApprovals(), loadQueue(), loadForgeRuns(), loadSpend(),
+        loadLogs(), loadComms(), loadApprovals(), loadQueue(), loadForgeRuns(), loadSpend(), loadAutonomy(),
         loadBenchmarkProgress()
       ]);
       document.getElementById('last-refresh').textContent =

@@ -66,6 +66,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             self.serve_json(get_forge_runs())
         elif self.path == "/api/spend":
             self.serve_json(get_spend())
+        elif self.path == "/api/autonomy":
+            self.serve_json(get_autonomy_score())
         else:
             self.send_response(404)
             self.end_headers()
@@ -345,7 +347,7 @@ def get_memory():
 
     # Today's daily note
     today = datetime.now().strftime("%Y-%m-%d")
-    daily = WORKSPACE / f"memory/copper/{today}.md"
+    daily = WORKSPACE / f"memory/{today}.md"
     if daily.exists():
         files["today"] = daily.read_text()
 
@@ -362,7 +364,7 @@ def get_tasks():
     todos = []
     files_to_check = [
         WORKSPACE / "docs/action-plan.md",
-        WORKSPACE / "memory/copper" / f"{datetime.now().strftime('%Y-%m-%d')}.md",
+        WORKSPACE / "memory" / f"{datetime.now().strftime('%Y-%m-%d')}.md",
     ]
     for f in files_to_check:
         if f.exists():
@@ -380,6 +382,35 @@ def get_tasks():
                         "source": f.name
                     })
     return todos
+
+
+def get_autonomy_score():
+    """Calculate Copper's autonomy score from work_queue.json"""
+    AUTONOMOUS = {"passed", "committed", "dropped"}
+    REVIEWED   = {"flagged", "awaiting_approval", "rejected"}
+    try:
+        items = json.loads((Path(__file__).parent / "work_queue.json").read_text())
+    except:
+        return {"score": None, "error": "no data"}
+
+    autonomous = sum(1 for i in items if i.get("status") in AUTONOMOUS)
+    reviewed   = sum(1 for i in items if i.get("status") in REVIEWED)
+    total      = autonomous + reviewed
+    score      = round((autonomous / total * 100), 1) if total else None
+
+    breakdown = {}
+    for i in items:
+        s = i.get("status", "unknown")
+        breakdown[s] = breakdown.get(s, 0) + 1
+
+    return {
+        "score":      score,
+        "autonomous": autonomous,
+        "reviewed":   reviewed,
+        "total":      total,
+        "breakdown":  breakdown,
+        "label":      f"{score}%" if score is not None else "N/A",
+    }
 
 
 def get_queue():
