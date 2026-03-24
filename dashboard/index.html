@@ -1161,6 +1161,10 @@
     const pct = d.pct_of_cap ?? 0;
     const barColor = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--yellow)' : 'var(--green)';
     const statusColor = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--yellow)' : 'var(--text-dim)';
+    const breakdown = d.breakdown ?? [];
+    const totalIn  = breakdown.reduce((s, b) => s + (b.input  ?? 0), 0);
+    const totalOut = breakdown.reduce((s, b) => s + (b.output ?? 0), 0);
+    const cronCalls = d.cron_calls ?? 0;
     el.innerHTML = `
       <div style="font-size:28px;font-weight:700;color:${statusColor};margin-bottom:4px">
         $${(d.estimated_usd ?? 0).toFixed(3)}
@@ -1168,13 +1172,13 @@
       </div>
       <div style="margin:8px 0 4px;display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted)">
         <span>${pct}% of daily cap</span>
-        <span>${d.api_calls ?? 0} API calls</span>
+        <span>${cronCalls} cron calls</span>
       </div>
       <div style="height:6px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-bottom:10px">
         <div style="height:100%;width:${Math.min(pct,100)}%;background:${barColor};border-radius:4px;transition:width 1s ease"></div>
       </div>
       <div style="font-size:10px;color:var(--text-muted)">
-        ~${(d.input_tokens/1000).toFixed(0)}k in · ~${(d.output_tokens/1000).toFixed(0)}k out · Haiku · checked ${d.checked_at ? new Date(d.checked_at).toLocaleTimeString() : '—'}
+        ~${(totalIn/1000).toFixed(0)}k in · ~${(totalOut/1000).toFixed(0)}k out · checked ${d.checked_at ? new Date(d.checked_at).toLocaleTimeString() : '—'}
       </div>`;
   }
 
