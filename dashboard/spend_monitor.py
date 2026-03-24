@@ -100,73 +100,81 @@ def cron_spend_today():
     return total_cost, calls, breakdown
 
 
-# ── Direct sessions — proxy from file size ─────────────────────────────────
-# Cron jobs have their own session files (included in cron_spend_today).
-# Direct sessions (heartbeats, user messages) don't log token counts.
-# We estimate: 1 KB of session file ≈ 60 tokens at ~$0.048/session for Haiku.
-
-BYTES_PER_TOKEN   = 16   # conservative: JSON overhead + content
-HAIKU_INPUT_COST  = PRICING["haiku"]["in"]
-HAIKU_OUTPUT_COST = PRICING["haiku"]["out"]
-AVG_OUTPUT_RATIO  = 0.10  # ~10% of tokens are output
+# ── Direct sessions — exact cost from usage entries ─────────────────────────
+# Session JSONL files (and their .bak.* compacted versions) contain exact
+# usage data in message.usage.cost.total — use that directly.
 
 def session_spend_today():
-    today = datetime.now().date()
-
-    # Collect session IDs already counted via cron runs
-    cron_session_ids = set()
-    for f in CRON_RUN_DIR.glob("*.jsonl"):
-        try:
-            for line in f.read_text().splitlines():
-                e = json.loads(line)
-                sid = e.get("sessionId") or e.get("sessionKey", "")
-                if sid:
-                    cron_session_ids.add(sid.split(":")[-1])
-        except:
-            pass
-
+    from datetime import timezone
+    today = datetime.now(timezone.utc).date()
     total_cost = 0.0
-    sessions = 0
-    for f in SESSION_DIR.glob("*.jsonl"):
-        try:
-            mtime = datetime.fromtimestamp(f.stat().st_mtime).date()
-            if mtime != today:
-                continue
-            # Skip if this session was spawned by a cron job
-            if f.stem in cron_session_ids:
-                continue
-            size_bytes = f.stat().st_size
-            total_tokens = size_bytes / BYTES_PER_TOKEN
-            out_tokens = total_tokens * AVG_OUTPUT_RATIO
-            inp_tokens = total_tokens - out_tokens
-            cost = cost_from_tokens(inp_tokens, out_tokens, "haiku")
-            total_cost += cost
-            sessions += 1
-        except:
-            pass
+    total_input = 0
+    total_output = 0
+    calls = 0
 
-    return total_cost, sessions
+    # Read both active .jsonl and compacted .bak.* / .reset.* files
+    patterns = ["*.jsonl", "*.jsonl.bak.*", "*.jsonl.reset.*"]
+    seen_lines = set()
+
+    for pattern in patterns:
+        for f in SESSION_DIR.glob(pattern):
+            try:
+                for line in f.read_text().splitlines():
+                    line = line.strip()
+                    if not line or line in seen_lines:
+                        continue
+                    seen_lines.add(line)
+                    e = json.loads(line)
+                    if not isinstance(e, dict):
+                        continue
+                    msg = e.get("message", {})
+                    if not isinstance(msg, dict):
+                        continue
+                    u = msg.get("usage")
+                    if not u:
+                        continue
+                    ts_str = e.get("timestamp", "")
+                    if ts_str:
+                        try:
+                            entry_date = datetime.fromisoformat(
+                                ts_str.replace("Z", "+00:00")
+                            ).date()
+                            if entry_date != today:
+                                continue
+                        except:
+                            continue
+                    cost = u.get("cost", {}).get("total", 0)
+                    total_cost += cost
+                    total_input  += u.get("input", 0) + u.get("cacheRead", 0) + u.get("cacheWrite", 0)
+                    total_output += u.get("output", 0)
+                    calls += 1
+            except:
+                pass
+
+    return total_cost, calls, total_input, total_output
 
 
 # ── Main estimate ───────────────────────────────────────────────────────────
 
 def estimate_today_spend():
     cron_cost, cron_calls, breakdown = cron_spend_today()
-    sess_cost, sess_count = session_spend_today()
+    sess_cost, sess_calls, sess_input, sess_output = session_spend_today()
     total = cron_cost + sess_cost
 
     return {
-        "date":            str(datetime.now().date()),
-        "estimated_usd":   round(total, 4),
-        "cap_usd":         DAILY_CAP_USD,
-        "pct_of_cap":      round((total / DAILY_CAP_USD) * 100, 1),
-        "cron_usd":        round(cron_cost, 4),
-        "session_usd":     round(sess_cost, 4),
-        "cron_calls":      cron_calls,
-        "direct_sessions": sess_count,
-        "breakdown":       breakdown,
-        "checked_at":      datetime.now().isoformat(),
-        "note":            "cron=exact tokens; sessions=size estimate",
+        "date":          str(datetime.now().date()),
+        "estimated_usd": round(total, 4),
+        "cap_usd":       DAILY_CAP_USD,
+        "pct_of_cap":    round((total / DAILY_CAP_USD) * 100, 1),
+        "cron_usd":      round(cron_cost, 4),
+        "session_usd":   round(sess_cost, 4),
+        "cron_calls":    cron_calls,
+        "session_calls": sess_calls,
+        "input_tokens":  sess_input,
+        "output_tokens": sess_output,
+        "breakdown":     breakdown,
+        "checked_at":    datetime.now().isoformat(),
+        "note":          "exact costs from session usage entries",
     }
 
 
@@ -226,7 +234,8 @@ def main():
     log(f"Spend: ${est['estimated_usd']:.4f} / ${DAILY_CAP_USD:.2f} "
         f"({est['pct_of_cap']}%) — "
         f"cron=${est['cron_usd']:.4f} ({est['cron_calls']} calls) + "
-        f"sessions=${est['session_usd']:.4f} ({est['direct_sessions']} sessions)")
+        f"sessions=${est['session_usd']:.4f} ({est['session_calls']} calls, "
+        f"{est['input_tokens']:,}in/{est['output_tokens']:,}out)")
 
     if est["estimated_usd"] >= DAILY_CAP_USD:
         msg = (
