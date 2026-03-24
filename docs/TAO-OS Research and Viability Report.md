@@ -1,0 +1,196 @@
+# **TAO-OS: AI-Guided Linux Optimization for Crypto Miners**
+
+## **Industrial Context and the Zettahash Era**
+
+The operational landscape for cryptocurrency mining in 2026 has transitioned from a decentralized hobbyist pursuit into a hyper-competitive industrial infrastructure. This era, characterized as the zettahash period, is defined by network hashing rates reaching approximately 1 ZH/s, or 1,000 exahashes per second. By February 19, 2026, the Bitcoin network recorded a historic 14.73% surge in mining difficulty, hitting a record 144.4 trillion. Such immense difficulty reflects a market dominated by specialized Application-Specific Integrated Circuit (ASIC) hardware, such as the Antminer S23 Hydro, which achieves efficiencies of 9.5 J/TH at 1,000 TH/s per unit. For operators utilizing general-purpose hardware, specifically Graphics Processing Units (GPUs) and Central Processing Units (CPUs), the margin for error has effectively vanished. Profits are dictated by the ability to extract every possible cycle of performance while minimizing power consumption and network latency.  
+The emergence of Decentralized Physical Infrastructure Networks (DePIN) has further complicated the hardware requirements for miners. Networks like Bittensor (TAO) and io.net have redirected compute power toward artificial intelligence training and inference tasks. As of early 2026, Bittensor hosts over 34 active subnets, each functioning as a specialized marketplace for machine learning tasks. Unlike traditional proof-of-work hashing, these workloads are non-deterministic and highly sensitive to operating system (OS) overhead, memory alignment, and inter-node communication latency. Standard Linux distributions, designed for general-purpose server or desktop use, include thousands of kernel parameters and background services that introduce "jitter"—random performance fluctuations that result in sub-optimal rewards or node de-registration.  
+TAO-OS serves as a critical intervention in this space, acting not merely as a management dashboard like HiveOS or Awesome Miner, but as an AI-guided kernel optimization layer. The project prioritizes the economy of physical contiguity, treating memory alignment and physical page allocation as the primary determinants of throughput in data-intensive hashing and inference tasks. By leveraging machine learning (ML) models to tune the heart of the OS, TAO-OS bridges the gap between raw silicon capabilities and the high-level requirements of 2026’s decentralized compute economy.
+
+## **Theoretical Framework for AI-Guided Kernel Tuning**
+
+The Linux kernel offers approximately 20,000 configuration options, making manual optimization a task of extreme complexity for even the most skilled system administrators. Traditional tuning relies on static "best practice" heuristics that are often outdated or inapplicable to specific hardware-workload combinations. TAO-OS replaces these static rules with an adaptive, data-driven optimization engine. This engine employs a combination of supervised learning for pattern detection, reinforcement learning for dynamic scheduling, and automated machine learning (AutoML) for hyperparameter search within the kernel's configuration space.
+
+### **Automated Feature Selection and Metric Pruning**
+
+A primary challenge in automated system tuning is the "curse of dimensionality." Modern Database Management Systems (DBMS) and kernels have hundreds of tunable "knobs," many of which are non-independent or redundant. TAO-OS utilizes a multi-stage analysis pipeline to identify the most impactful parameters for mining throughput. This process begins with workload characterization, mapping current system behavior to a repository of historical performance data. To manage the complexity, the system applies factor analysis and Lasso-based feature selection to rank knobs by their statistical significance to the target metric, such as hashes per second or inference latency.
+
+| Optimization Phase | Statistical Method | Objective |
+| :---- | :---- | :---- |
+| Workload Identification | Clustering & Factor Analysis | Group current tasks with similar historical signatures |
+| Knob Ranking | Lasso Regression | Identify the subset of kernel parameters with highest impact |
+| Policy Generation | Gradient Descent / RL | Calculate the optimal value for each ranked parameter |
+| Verification | Benchmarking (iperf3, UnixBench) | Confirm performance gains and detect regressions |
+
+By pruning redundant metrics—such as correlated counters for disk reads and writes—the system reduces model complexity and prevents "over-tuning," where the overhead of the AI agent itself consumes more resources than it saves. Experimental results from similar frameworks like KconfigTune show gains of up to 19.92% over default configurations in standard system benchmarks, a differential that represents the difference between profitability and loss in the 2026 mining market.
+
+### **LLM-Integrated Heuristic Discovery**
+
+Beyond traditional statistical ML, TAO-OS integrates Large Language Models (LLMs) into its build-house for the purpose of evolutionary heuristic discovery. Recent breakthroughs, such as AlphaEvolve, demonstrate that LLMs can generate Python functions that represent complex kernel heuristics. These functions are then scored by an evaluator based on real-world hardware execution rather than simulations.  
+The fitness function for these evolved heuristics can be represented as:  
+where H is the heuristic code generated by the LLM ensemble. This allows the system to discover hardware-specific optimizations that human developers might overlook, such as specific memory tiling configurations for Intel Arc's Xe Matrix Extensions (XMX). Semantic mutations, such as increasing tile sizes for better memory coalescing, are tested across hundreds of iterations, converging on programs that can reduce training and inference times for Bittensor nodes by up to 23%.
+
+## **Networking Breakthroughs for P2P Mining Throughput**
+
+For decentralized networks, the bottleneck is often the transport layer. Rapid block propagation and model weight synchronization are essential for maintaining high "Evidence Chain Availability" (ECA). Traditional loss-based congestion control algorithms like TCP CUBIC are inherently flawed in the high-speed, long-haul links that connect global mining farms. CUBIC treats every packet loss as a sign of congestion, halving the transmission rate and leading to abysmal throughput on lossy or high-latency paths. TAO-OS resolves this by standardizing on Bottleneck Bandwidth and Round-trip propagation time (BBR) version 3\.
+
+### **BBRv3: Model-Based Congestion Control**
+
+BBR represents a paradigm shift by modeling the network pipe directly based on delivery rates and minimum RTT, rather than reacting to packet loss. In scenarios involving 1% packet loss—a common occurrence in the cross-continental links used by P2P miners—CUBIC performance drops by over 70%, while BBR maintains approximately 92% of its baseline throughput. On a 10Gbps link with 100ms RTT, BBR has been measured to be up to 2700x faster than CUBIC when packet loss is present.
+
+| Network Scenario | TCP CUBIC Throughput | TCP BBR Throughput | Retransmission Rate |
+| :---- | :---- | :---- | :---- |
+| Clean LAN (0% loss) | 950 Mbps | 940 Mbps | \~0 |
+| WAN (50ms RTT, 0% loss) | 180 Mbps | 750 Mbps | BBR Superior |
+| Lossy WAN (100ms RTT, 1% loss) | 25 Mbps | 650 Mbps | CUBIC Unstable |
+
+However, BBR is not a universal panacea. In virtualized environments under heavy CPU contention, BBR throughput can collapse to nearly zero as its bandwidth estimation algorithm fails to account for scheduling delays. TAO-OS implements a specialized BBR patch that monitors inflight bytes and increases the pacing rate during CPU-limited episodes to preserve throughput. Furthermore, for competitive network bottlenecks, TAO-OS supports "Ad-BBR" (Adaptive BBR), which uses a finer-grained RTT-based adjustment mechanism to reduce data over-injection and improve fairness against legacy flows, yielding a 17% increase in throughput over standard BBRv1.
+
+### **High-BDP Socket Buffer Optimization**
+
+To support high-bandwidth transfers, the kernel's socket buffer ceilings must be raised significantly. The Bandwidth-Delay Product (BDP) determines the theoretical maximum window size required to keep a link saturated. For a 10Gbps link with a 50ms RTT, the required buffer is approximately 62.5 MB.  
+Standard Linux defaults, which often cap at 4MB or 6MB, act as an invisible ceiling that prevents miners from ever reaching their hardware's potential. TAO-OS employs a 16MB or 32MB maximum for tcp\_rmem and tcp\_wmem on standard rigs, and up to 128MB for servers on 10Gbps+ backbones. These changes are paired with the fq (Fair Queuing) packet scheduler, which is a prerequisite for optimal BBR performance, as it ensures proper packet pacing at the network interface card (NIC) layer.
+
+## **Hardware Synergy: Intel Arc GPU Optimization**
+
+A defining characteristic of TAO-OS is its deep integration with the Intel Arc graphics ecosystem. In 2026, Intel's Alchemist and Battlemage series have emerged as highly efficient alternatives for decentralized AI workloads due to their open-source driver stack and dedicated XMX matrix hardware. TAO-OS provides specialized sysfs handles and performance mode tweaks that are absent in generic distributions like Ubuntu or Fedora.
+
+### **GPU Frequency Pinning and SLPC Profiles**
+
+In computationally intensive workloads such as large language model (LLM) inference, dynamic GPU frequency scaling can introduce significant performance variability. TAO-OS allows operators to "pin" GPU frequencies to their theoretical hardware maximum, known as the RP0 frequency. This is achieved by echoing the desired frequency into the rps\_min\_freq\_mhz, rps\_max\_freq\_mhz, and rps\_boost\_freq\_mhz sysfs handles provided by the i915 or Xe kernel drivers.  
+\# Example frequency pinning script for multi-tile Intel GPUs  
+for (( i=1; i\<$num\_cards; i++ )); do  
+  for (( j=0; j\<$num\_tiles; j++ )); do  
+    echo $desired\_freq \> /sys/class/drm/card$i/gt/gt$j/rps\_min\_freq\_mhz;  
+    echo $desired\_freq \> /sys/class/drm/card$i/gt/gt$j/rps\_max\_freq\_mhz;  
+  done  
+done
+
+Furthermore, TAO-OS facilitates the adjustment of the GuC (Graphics Microcontroller) Single Loop Power Control (SLPC) profiles. By writing power\_saving or base to the slpc\_power\_profile sysfs handle, users can choose between conservative thresholds for energy efficiency or aggressive ramping for peak hashrate performance. This is particularly useful for miners operating under variable electricity pricing, allowing the OS to automatically pivot power profiles based on profitability data.
+
+### **Mesa 26.1 and HiZ-CCS Surface Optimization**
+
+The release of Mesa 26.1 has introduced critical patches for Intel DG2 (Alchemist) discrete and integrated GPUs. These updates, which took over four months to develop, address long-standing graphics corruption issues by implementing partial resolves for HiZ-CCS (Hierarchical Z and Color Control Surface) surfaces. Rather than resolving the entire depth buffer, the driver now resolves only the regions required by the current workload, significantly reducing memory traffic. For miners, this hardware-level memory efficiency has translated into benchmarks showing performance uplifts as high as 260% in specific graphical trace scenarios. TAO-OS ensures that these optimizations are enabled by default, paired with support for the low-latency hints introduced in the modern Intel Xe kernel graphics driver.
+
+## **Latency Reduction through CPU Power State Management**
+
+In high-frequency P2P networks and real-time validation systems, the micro-latency associated with CPU power state transitions can accumulate into significant performance penalties. When a CPU core is idle, the OS attempts to move it into progressively deeper sleep states, known as C-states. While C-states (ranging from C1 to C6) save power, the time required to "wake up" the core and resume instructions can introduce delays that disrupt packet processing and block validation.
+
+### **Disabling Deep C-States for Immediate Response**
+
+TAO-OS implements aggressive CPU power management overrides. By limiting the maximum C-state to C1 or C0 (fully active), the OS ensures that idle vCPUs resume execution almost instantly. Empirical testing shows that average measured interrupted process latency drops from 3.4$\\mus with C-states enabled to just 1.12\\mu$s with them disabled. This is critical for workloads like in-memory databases and high-frequency network packet processing found in Bittensor validators.
+
+| CPU Idle State | Description | Latency Impact | Power Impact |
+| :---- | :---- | :---- | :---- |
+| C0 | Operating State: Fully turned on | Minimum (Poll Mode) | Maximum |
+| C1 | Halt: Internal clocks stopped via software | Low (Instant Wake) | High |
+| C3 | Sleep: Internal/External clocks stopped | Medium (ms range) | Moderate |
+| C6 | Deep Power Down: Voltage reduced to 0V | High (Wake delay) | Minimum |
+
+Operators can apply these limits via kernel boot parameters such as intel\_idle.max\_cstate=1 and processor.max\_cstate=1. For servers utilizing 4th Gen Intel Xeon Scalable Processors, where power management is extremely aggressive, TAO-OS recommends reducing the number of active cores via ethtool to keep them "awake" longer, preventing the core from entering low-power states during transient idle periods.
+
+### **Sched\_ext and BPF-Powered Scheduling**
+
+A foundational innovation of TAO-OS is its support for sched\_ext, a Linux kernel feature introduced in version 6.12 that enables implementing thread schedulers in eBPF. Unlike traditional schedulers like EEVDF, sched\_ext allows for the dynamic loading of custom scheduling policies without rebooting the system. TAO-OS provides specialized BPF schedulers such as scx\_nest, which concentrates tasks on the most efficient subset of cores to maintain high frequencies and optimize performance for workloads with low CPU utilization. Conversely, the scx\_rustland scheduler is designed to prioritize interactive rig management GUIs over background CPU-intensive hashing, ensuring that the system remains responsive even under 100% load.
+
+## **Security, Attestation, and the DePIN "Oracle Problem"**
+
+Decentralized compute networks must solve the "oracle problem": verifying that work happening off-chain on physical hardware is legitimate and not misrepresented. This requires hardware attestation, a cryptographic process where nodes submit proofs of their physical configuration. Virtualization layers, such as those used by AWS or GCP, catastrophically fail here by masking PCI device IDs and abstracting hardware counters. TAO-OS provides a bare-metal substrate designed for direct hardware access and authentic firmware signatures.
+
+### **Transitioning from SGX to Intel TDX**
+
+For several years, Intel SGX (Software Guard Extensions) was the standard for Trusted Execution Environments (TEEs). However, research into the "WireTap" vulnerability has demonstrated that an attacker with physical access to a DDR4 platform can extract SGX attestation signing keys via DRAM bus interposition. This allows for the forgery of attestation quotes, making malicious code appear valid.  
+In response, TAO-OS facilitates a strategic migration toward Intel TDX (Trust Domain Extensions) and NVIDIA Confidential Computing (CC). TDX, built for the DDR5 era, is hardened against physical bus-level attacks and enables secure virtual machine isolation with minimal overhead. By integrating with Intel Trust Authority—a zero-trust attestation SaaS—TAO-OS allows nodes to independently verify the integrity of their compute environments to remote validators.
+
+| Attestation Feature | SGX (Legacy) | TDX (Next-Gen) | TAO-OS Implementation |
+| :---- | :---- | :---- | :---- |
+| **Integrity Protection** | Enclave-based | TD Partition-based | Memory Isolation |
+| **Bus Attack Resistance** | Vulnerable (WireTap) | Hardened (DDR5) | Hardware-Rooted |
+| **Trust Model** | Vendor-dependent | Policy-based | Intel Trust Authority |
+| **Verification** | Periodic Quote | Continuous Proof | eBPF Monitoring |
+
+### **Hardware Fingerprinting and Fingerprint Hashing**
+
+To prevent "mining botnets" from hijacking resources or operators from "gaming" performance benchmarks, TAO-OS implements microarchitectural fingerprinting. These fingerprints are compact (e.g., 16-bit) signatures of recent architectural state updates that can detect soft errors or input incoherence with only 5-6% overhead. Additionally, the OS includes a Verilog-based implementation of the SHA-256 algorithm for Field-Programmable Gate Arrays (FPGAs), achieving throughputs of 1.4 Gbps across 16 parallel cores. This dedicated hardware implementation is used as a secure "heartbeat" for DePIN nodes, proving physical hardware presence and reducing dynamic power consumption by 1000x compared to software-based verification.
+
+## **The Bittensor (TAO) Ecosystem: Performance Benchmarks**
+
+The Bittensor network utilizes the Yuma Consensus mechanism to reward models proportional to the informational value they provide. In 2026, the network's value proposition is centered on the democratization of compute. High-performing nodes, which accumulate more TAO stake, are prioritized for rewards, while underperforming nodes face gradual de-registration. TAO-OS provides the infrastructure required to meet these stringent performance requirements.
+
+### **Model Benchmarks: Covenant-72B**
+
+A landmark achievement in the 2026 Bittensor ecosystem was the collaborative pre-training of the "Covenant-72B" model. Over 70 independent contributors used standard internet hardware to train a 72-billion-parameter model on 1.1 trillion tokens, achieving an MMLU score of 67.1. This score is competitive with early GPT-4-class models, demonstrating that decentralized compute can achieve data-center-level results without a $100 million budget.
+
+| Bittensor Statistic | Value (March 2026\) | Trend |
+| :---- | :---- | :---- |
+| Active Subnets | 34 | Proliferating |
+| Total Circulating TAO | \~9.6 Million | Fixed 21M Supply |
+| Staked TAO Supply | \~52% | High Conviction |
+| Top Validator APY | 10.31% | Competitive |
+| Average Model MMLU | 67.1 (Covenant-72B) | High Performance |
+
+TAO-OS enhances these results by providing a comprehensive dashboard for monitoring Bitcoin and TAO network data. The dashboard consumes data from specialized Node.js RPC workers, tracking block height, network hashrate, difficulty adjustment metrics, and transaction fee recommendations in real-time. This feedback loop allows the AI-guided tuning engine to adjust kernel parameters in lockstep with network conditions.
+
+## **Tweak Stack Suggestions for Maximum Efficiency**
+
+For the 2026 mining environment, TAO-OS incorporates a multi-layer "tweak stack" designed to optimize the relationship between hashing performance and network connectivity.
+
+### **Network Layer Optimizations**
+
+The goal of the network tweak stack is to maximize throughput on high-BDP links while minimizing retransmissions.
+
+1. **Congestion Control**: Set net.ipv4.tcp\_congestion\_control \= bbr and configure net.core.default\_qdisc \= fq. This models the bottleneck bandwidth to prevent bufferbloat in the global P2P mesh.  
+2. **Window Scaling**: Ensure net.ipv4.tcp\_window\_scaling \= 1 is enabled to allow windows larger than 64KB, essential for 1Gbps+ transcontinental links.  
+3. **Connection Backlog**: Increase net.core.somaxconn and net.ipv4.tcp\_max\_syn\_backlog to 65535 to handle high connection churn during peak block propagation events.  
+4. **Buffer Ceilings**: Set net.core.rmem\_max and net.core.wmem\_max to at least 16,777,216 (16 MB) to accommodate the calculated BDP of a 1Gbps/50ms link.
+
+### **Memory and Process Layer Optimizations**
+
+1. **Memory Contiguity (TAO Core)**: Favor Transparent Huge Pages (THP) to reduce the cost of metadata management. Implement "THP HVO" (HugeTLB Vmemmap Optimization) to bring hugeTLB features to standard THP allocations.  
+2. **CPU Isolation**: Use the isolcpus kernel parameter to isolate specific cores for high-priority hashing or inference threads, preventing system-level interrupts from causing jitter.  
+3. **IRQ Affinity**: Utilize irqbalance or manual affinity settings to pin network interface interrupts to non-isolated cores, ensuring that packet processing does not interrupt compute cycles.  
+4. **CPU Idle Limits**: Apply intel\_idle.max\_cstate=1 to limit idle cores to the C1 state, reducing wake-up latency for bursty validation queries.
+
+### **Hardware Tuning (Intel Arc Specifics)**
+
+1. **ReBAR / SAM**: Ensure Resizable BAR and Above 4G Decoding are enabled in the BIOS, as these are officially recommended for Intel Arc and improve memory access efficiency.  
+2. **Performance Hinting**: Utilize the low-latency hint in the Intel ANV Vulkan driver to prioritize frame pacing in ML-rendering tasks.  
+3. **ASPM Configuration**: Set pcie\_aspm=performance to ensure that PCIe power management does not downclock the bus during active mining, preventing the "slideshow" effect reported by users on conservative profiles.
+
+## **Project Viability and Market Positioning**
+
+The viability of TAO-OS is bolstered by the maturation of the decentralized compute market. By late 2026, the sector is expected to enter a consolidation phase, with the number of decentralized AI protocols decreasing to 2-3 through integration or transformation into institutional ETFs. TAO-OS is positioned as the primary infrastructure layer for these surviving protocols, offering a "policy-backed turnaround" opportunity for miners who invest in Intel hardware.
+
+### **Comparative Market Analysis**
+
+While competitive operating systems like HiveOS provide a polished user experience, they are management-centric rather than optimization-centric. HiveOS’s primary value proposition is its dashboard and mobile app, but it lacks the deep kernel-level BPF hooks and AI-guided tuning capabilities of TAO-OS. Furthermore, HiveOS’s pricing model—at $3 per rig per month—can become prohibitive for large-scale GPU farms. TAO-OS, by contrast, emphasizes open-source modularity and hardware-rooted trust through TDX integration.
+
+| Feature | HiveOS / Awesome Miner | NiceHash | TAO-OS |
+| :---- | :---- | :---- | :---- |
+| **Focus** | Remote Monitoring & Overclocking | Hashrate Marketplace | AI-Guided Kernel Tuning |
+| **Scheduler** | Standard Linux (EEVDF) | Standard Linux | Dynamic BPF (sched\_ext) |
+| **Networking** | TCP CUBIC (Standard) | Standard | TCP BBRv3 / BDP Optimized |
+| **AI Tuning** | Manual Alerts | Profit-Switching | LLM-Guided Heuristics |
+| **Hardware** | Cross-Vendor (Standard) | Cross-Vendor | Intel Arc XMX Optimized |
+| **Attestation** | None / Basic Checksum | Basic | Hardware-Rooted (TDX) |
+
+### **Sustainable and Green Mining Initiatives**
+
+TAO-OS aligns with the global shift toward sustainable energy in mining. As of 2026, renewable energy sources power 56.7% of Bitcoin mining, with wind and nuclear contributing 15.4% and 9.8% respectively. TAO-OS contributes to this sustainability trend through its AI-driven power management, which dynamically redistributes power between GPU and CPU based on real-time task demand while maintaining the system's total thermal budget. This reduces the carbon footprint of high-TDP operations and makes TAO-OS an attractive choice for green data center pilots like South Texas's "Project Ellen".
+
+## **Improvements and Future Directions**
+
+The investigation of the 2026 OS landscape suggests several high-value improvements for TAO-OS to maintain its competitive edge.
+
+1. **Adaptive BBR Corner Case Handling**: While BBRv3 is superior to CUBIC, it still exhibits unfairness when competing against other BBR flows in multi-RTT networks. TAO-OS should incorporate "Ad-BBR" (Adaptive BBR) logic, which uses link queue-state information and real-time RTT standard deviation to reduce data over-injection and improve RTT fairness. This would provide a 30% improvement in fairness and a 20% decrease in latency over standard BBRv1.  
+2. **Intel Graphics Shader Distribution Service**: To address the long "first load" times for AI models on Battlemage GPUs, TAO-OS should integrate the new shader distribution service, which helps improve load times by up to 2x for titles like Black Myth: Wukong and Hogwarts Legacy.  
+3. **HyperEnclave Attestation**: Moving beyond vendor-specific attestation, TAO-OS should support the "HyperEnclave" model, which uses physical TPMs to bind virtualized attestation identity keys (AIK). This decouples the root-of-trust from a single CPU vendor and provides enhanced transparency through independent third-party CAs.  
+4. **Hardware Wallet Integration**: For validators managing massive TAO stakes, TAO-OS should provide direct integration with bank-grade secure elements (EAL 6+) such as those found in the OneKey Pro or Ledger Stax. This would allow for air-gapped signing of evidence chains, protecting assets against kernel-level compromise.
+
+## **Conclusions**
+
+The research indicates that the decentralized compute economy of 2026 rewards reliability, revenue, and verified performance over speculative node counts. TAO-OS addresses these business fundamentals by bridging the gap between raw physical silicon and the intelligence layer of the blockchain. By replacing static Linux defaults with an AI-guided kernel—optimized for BBRv3 networking, Intel Arc XMX acceleration, and zero-latency CPU state management—TAO-OS provides the only viable operating environment for miners facing 144T difficulty.  
+The project's success is tied to its role as "invisible infrastructure," providing the vessel for custom security and observability features that bypass the constraints of traditional Linux release timelines. As decentralized AI subnets proliferate, the ability to proof work on bare-metal hardware with reliable attestation will remain the primary barrier to entry. Through its commitment to hardware-rooted trust and open-source modularity, TAO-OS enables miners to transform their rigs from speculative assets into critical components of the global internet of value.
+
+#### **Works cited**
+
+1\. Can you still mine Bitcoin on a PC in 2026? Here is the reality \- TradingView, https://www.tradingview.com/news/cointelegraph:340b5333d094b:0-can-you-still-mine-bitcoin-on-a-pc-in-2026-here-is-the-reality/ 2\. Cryptocurrency Mining Statistics 2026: Energy, Profits & Risks | MEXC News, https://www.mexc.com/news/801732 3\. TAO & Bittensor Guide: AI Network, Tokenomics & Trading Platforms 2026 \- Bitget, https://www.bitget.com/academy/12560603877646 4\. Top 6 DePIN Projects Transforming Physical Infrastructure in 2026 | BlockchainReporter en Binance Square, https://www.binance.com/es-AR/square/post/35444829671817 5\. Bittensor's 5.7% Surge: Why TAO Is Capturing AI-Crypto Investor Attention | MEXC News, https://www.mexc.com/news/882354 6\. KconfigTune: Automatic Performance Tuning for Linux Kernel Configuration, https://www.computer.org/csdl/journal/tc/5555/01/11303372/2cwBOSU3QLC 7\. Top 9 Bitcoin Mining Software 2026: Reviews & Comparisons \- Mudrex Learn, https://mudrex.com/learn/bitcoin-mining-software-2024/ 8\. TAO: THP Allocator Optimizations \- LWN.net, https://lwn.net/Articles/964097/ 9\. LPC 2024: TAO, https://lpc.events/event/18/contributions/1779/attachments/1657/3473/LPC24\_TAO.pdf 10\. Automatic Database Management System Tuning Through Large-scale Machine Learning, https://db.cs.cmu.edu/papers/2017/p1009-van-aken.pdf 11\. Machine Learning for Linux Kernel Optimization: Current Trends and Future Directions, https://www.researchgate.net/publication/390550911\_Machine\_Learning\_for\_Linux\_Kernel\_Optimization\_Current\_Trends\_and\_Future\_Directions 12\. Tuning Your DBMS Automatically with Machine Learning | Artificial Intelligence \- AWS, https://aws.amazon.com/blogs/machine-learning/tuning-your-dbms-automatically-with-machine-learning/ 13\. Automatic database management system tuning through large-scale machine learning, https://blog.acolyer.org/2017/08/11/automatic-database-management-system-tuning-through-large-scale-machine-learning/ 14\. Smart Linux Performance Tuning: 6 AI-Driven Tools Delivering Real-Time System Optimisation \- DEV Community, https://dev.to/igarakh/smart-linux-performance-tuning-6-ai-driven-tools-delivering-real-time-system-optimisation-l99 15\. LLM-Guided Evolutionary Kernel Optimization: From Research to Production KernelsYep\! \- Yet Another AI Blog, https://mlai.blog/2025-12-20-llm-kernel-optimization 16\. Intel Arc on Linux is still leaving XMX on the floor (Proton, Vulkan, XeSS) \- Reddit, https://www.reddit.com/r/IntelArc/comments/1r92hnz/intel\_arc\_on\_linux\_is\_still\_leaving\_xmx\_on\_the/ 17\. A TEE-Based Architecture for Confidential and Dependable Process Attestation in Authorship Verification \- arXiv, https://arxiv.org/pdf/2603.00178 18\. How to Compare TCP CUBIC and BBR Performance \- OneUptime, https://oneuptime.com/blog/post/2026-03-20-compare-tcp-cubic-bbr-performance/view 19\. TCP BBR congestion control comes to GCP – your Internet just got faster \- Google Cloud, https://cloud.google.com/blog/products/networking/tcp-bbr-congestion-control-comes-to-gcp-your-internet-just-got-faster 20\. Performance Evaluation of BBR-v3 with Cubic and Reno in a Ubiquitous Wired/Wi-Fi Channel, https://jcbi.org/index.php/Main/article/view/1030 21\. draft-ietf-ccwg-bbr-05 \- BBR Congestion Control \- IETF Datatracker, https://datatracker.ietf.org/doc/draft-ietf-ccwg-bbr/ 22\. Overcoming TCP BBR Performance Degradation in Virtual Machines under CPU Contention, https://arxiv.org/html/2601.05665v1 23\. Path Quality: Is BBR the Future of Congestion Avoidance? \- ThousandEyes, https://www.thousandeyes.com/blog/path-quality-brr-future-congestion-avoidance 24\. Ad-BBR: Enhancing Round-Trip Time Fairness and Transmission Stability in TCP-BBR \- MDPI, https://www.mdpi.com/1999-5903/17/5/189 25\. How to Build TCP Connection Optimization Strategies \- OneUptime, https://oneuptime.com/blog/post/2026-01-30-tcp-connection-optimization/view 26\. How to Tune TCP Window Scaling and Buffers on RHEL \- OneUptime, https://oneuptime.com/blog/post/2026-03-04-tune-tcp-window-scaling-buffer-sizes-high-throughput-networks-rhel/view 27\. How to Tune TCP Buffer Sizes on Ubuntu for Better Performance \- OneUptime, https://oneuptime.com/blog/post/2026-03-02-how-to-tune-tcp-buffer-sizes-on-ubuntu-for-better-performance/view 28\. TCP Window Size Calculator \- BDP, Buffer Tuning & MTU Optimizer | Inventive HQ, https://inventivehq.com/tools/network/tcp-window-size-calculator 29\. Chapter 5\. Tuning TCP connections for high throughput | Network troubleshooting and performance tuning | Red Hat Enterprise Linux | 10, https://docs.redhat.com/en/documentation/red\_hat\_enterprise\_linux/10/html/network\_troubleshooting\_and\_performance\_tuning/tuning-tcp-connections-for-high-throughput 30\. How to Configure TCP BBR Congestion Control Algorithm on RHEL \- OneUptime, https://oneuptime.com/blog/post/2026-03-04-configure-tcp-bbr-congestion-control-algorithm-rhel/view 31\. Are the Intel Arc drivers really this bad on Linux? \- Page 2 \- Kernel, boot, graphics & hardware \- EndeavourOS Forum, https://forum.endeavouros.com/t/are-the-intel-arc-drivers-really-this-bad-on-linux/77240?page=2 32\. Intel Arc "Alchemist" Linux Driver Update Can Yield Up to 260% Performance Boost, https://www.techpowerup.com/345740/intel-arc-alchemist-linux-driver-update-can-yield-up-to-260-performance-boost 33\. Configuring GPU Device \- Intel, https://www.intel.com/content/www/us/en/docs/oneapi/optimization-guide-gpu/2024-1/linux-system-configs.html 34\. Intel Graphics Driver With Linux 6.15 To Allow Tuning The GuC Power Profile \- Phoronix, https://www.phoronix.com/news/Intel-sysfs-GuC-SLPC-Profile 35\. New Mesa Linux Patches Reportedly Deliver Up To 260% Performance Boost On Intel Alchemist Graphics \- Wccftech, https://wccftech.com/new-mesa-linux-patches-reportedly-deliver-up-to-260-performance-boost-on-intel-alchemist-graphics/ 36\. Change the C-state to reduce vCPU response latency \- Elastic Compute Service \- Alibaba Cloud Documentation Center, https://www.alibabacloud.com/help/en/ecs/user-guide/change-c-state-status-to-reduce-vcpu-response 37\. What are CPU "C-states" and how to disable them if needed? \- GitHub Gist, https://gist.github.com/wmealing/2dd2b543c4d3cff6cab7 38\. Disable this Setting to MASSIVELY Boost Your Performance (CPU C-States) \- YouTube, https://www.youtube.com/watch?v=cVPEXqbfhmw 39\. Chapter 3\. Improving the network latency | Network troubleshooting and performance tuning | Red Hat Enterprise Linux | 10, https://docs.redhat.com/en/documentation/red\_hat\_enterprise\_linux/10/html/network\_troubleshooting\_and\_performance\_tuning/improving-the-network-latency 40\. ​CPU Package C-State Control \- 1.4 \- ID:636781 | Intel® Ethernet 800 Series, https://edc.intel.com/content/www/us/en/design/products/ethernet/perf-tuning-guide-800-series-linux/1.4/%E2%80%8Bcpu-package-c-state-control/ 41\. sched-ext/scx: sched\_ext schedulers and tools \- GitHub, https://github.com/sched-ext/scx 42\. Hands-On with sched\_ext: Building Custom eBPF CPU Schedulers \- HackMD, https://hackmd.io/@williamgood/Sy8oCgqgge 43\. eBPF Tutorial by Example: Implementing the \`scx\_nest\` Scheduler ..., https://dev.to/yunwei37/ebpf-tutorial-by-example-implementing-the-scxnest-scheduler-h79 44\. eBPF Tutorial by Example: Implementing the \`scx\_nest\` Scheduler | by yunwei37 | Medium, https://medium.com/@yunwei356/ebpf-tutorial-by-example-implementing-the-scx-nest-scheduler-4ad63e07d6e8 45\. scx/scheds/rust/scx\_rustland/README.md at main \- GitHub, https://github.com/sched-ext/scx/blob/main/scheds/rust/scx\_rustland/README.md 46\. Crafting new Linux schedulers with sched-ext, Rust and Ubuntu | Canonical, https://canonical.com/blog/crafting-new-linux-schedulers-with-sched-ext-rust-and-ubuntu 47\. Why DePIN Compute Networks Require Bare Metal Infrastructure To Function Correctly, https://openmetal.io/resources/blog/why-depin-compute-networks-require-bare-metal-infrastructure-to-function-correctly/ 48\. TEE 101: How Intel SGX works and why we use it at Integritee \- Medium, https://medium.com/integritee/tee-101-how-intel-sgx-works-and-why-we-use-it-at-integritee-5cb2957c050f 49\. SGX WireTap and Battering RAM: Risks, Impact, and Response Roadmap \- Hacken.io, https://hacken.io/insights/wiretap-and-battering-ram-risks/ 50\. Phala Announces Strategic Transition Beyond SGX in Response to WireTap Findings, https://phala.com/posts/response-to-wiretap-sgx-deprecation 51\. Intel® Trust Authority, https://www.intel.com/content/www/us/en/security/trust-authority.html 52\. Attestation overview \- Intel® Trust Authority, https://docs.trustauthority.intel.com/main/articles/articles/ita/concept-attestation-overview.html 53\. Fingerprinting: Hash-Based Error Detection in Microprocessors \- Electrical and Computer Engineering, https://users.ece.cmu.edu/\~jhoe/distribution/2008/jsmolens.pdf 54\. Crypto-mining botnet modifies CPU configurations to increase its mining power, https://therecord.media/crypto-mining-botnet-modifies-cpu-configurations-to-increase-its-mining-power 55\. SHA-256 Hardware Proposal for IoT Devices in the Blockchain Context \- MDPI, https://www.mdpi.com/1424-8220/24/12/3908 56\. SHA-256 Hardware Proposal for IoT Devices in the Blockchain Context \- PMC, https://pmc.ncbi.nlm.nih.gov/articles/PMC11207617/ 57\. Bittensor (TAO) Price Soars 37% on AI Hype, Faces Pullback Risk \- Phemex, https://phemex.com/ko/blogs/tao-price-analysis-bittensor-surges-after-jensen-huang-endorses-decentralized-ai-march-23 58\. tetherto/miningos-app-ui \- GitHub, https://github.com/tetherto/miningos-app-ui 59\. How to Tune Network Kernel Parameters for High-Throughput Workloads on RHEL, https://oneuptime.com/blog/post/2026-03-04-tune-network-kernel-parameters-high-throughput-rhel-9/view 60\. How to Configure Network Optimization \- OneUptime, https://oneuptime.com/blog/post/2026-01-25-configure-network-optimization/view 61\. Low Latency Tuning Guide | Erik Rigtorp, https://rigtorp.se/low-latency-guide/ 62\. Q1 2026 Support Thread – Use this for ALL Intel Arc GPU support questions (install, crashes, performance, games, AV1 encoding, multi-monitor, etc.) \- Reddit, https://www.reddit.com/r/IntelArc/comments/1q35q34/q1\_2026\_support\_thread\_use\_this\_for\_all\_intel\_arc/ 63\. Arc A750 has been noticeably finicky since upgrading : r/IntelArc \- Reddit, https://www.reddit.com/r/IntelArc/comments/1ls9wxr/arc\_a750\_has\_been\_noticeably\_finicky\_since/ 64\. Intel Arc A750 on Ubuntu 22.10 Review and Testing... It's Rough : r/linux\_gaming \- Reddit, https://www.reddit.com/r/linux\_gaming/comments/yaao2x/intel\_arc\_a750\_on\_ubuntu\_2210\_review\_and\_testing/ 65\. In-depth analysis of AI and Crypto: The era of symbiosis between algorithms and ledgers, https://www.panewslab.com/en/articles/019d053d-5f3e-7638-b81b-fce30cfdeb65 66\. AMD vs Intel 2026 Strategic Analysis \- YouTube, https://www.youtube.com/watch?v=N50Ug3tA24k 67\. Best Bitcoin Mining Software for Windows, MacOS and Linux in 2026 \- Webopedia, https://www.webopedia.com/crypto/mining/best-bitcoin-mining-software/ 68\. Best 10 mining Operating Systems for Digital Mining \- Hiveon, https://hiveon.com/news/best\_10\_mining\_operating\_systems\_for\_digital\_mining/ 69\. CPU frequency scaling \- ArchWiki, https://wiki.archlinux.org/title/CPU\_frequency\_scaling 70\. Cryptocurrency Mining Market Size, Industry Share, Forecast to 2034, https://www.fortunebusinessinsights.com/cryptocurrency-mining-market-114554 71\. Performance Evaluation of TCP BBRv3 in Networks with Multiple Round Trip Times \- MDPI, https://www.mdpi.com/2076-3417/14/12/5053 72\. Date: March 17, 2026 Driver Version: 32.0.101.8626 WHQL Gaming Highlights: Fixed Issues: \- Intel, https://downloadmirror.intel.com/915256/ReleaseNotes\_101.8626.pdf 73\. Deep Attestation \- Virtualise a Hardware-bound Trusted Platform Module \- WebThesis \- Politecnico di Torino, https://webthesis.biblio.polito.it/28636/1/tesi.pdf 74\. A TPM-based combined remote attestation method for confidential computing | CNCF, https://www.cncf.io/blog/2025/10/08/a-tpm-based-combined-remote-attestation-method-for-confidential-computing/ 75\. The Ultimate Guide to the Best TAO Wallets in 2026: Securing Your Bittensor Assets, https://onekey.so/blog/ecosystem/the-ultimate-guide-to-the-best-tao-wallets-in-2026-securing-your-bittensor-assets/ 76\. AI Integration and Tools in the Linux Ecosystem: A Deep Dive into the Intelligent Evolution of Open-Source Computing \- LogicWeb, https://www.logicweb.com/ai-integration-and-tools-in-the-linux-ecosystem-a-deep-dive-into-the-intelligent-evolution-of-open-source-computing/ 77\. eBPF In Production \- Linux Foundation, https://www.linuxfoundation.org/hubfs/eBPF/eBPF%20In%20Production%20Report.pdf

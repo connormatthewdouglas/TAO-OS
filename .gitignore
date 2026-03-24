@@ -39,3 +39,9 @@ agents/
 CLAUDE_SESSION.md
 dashboard/session_watchdog.py
 .local/
+
+# Runtime state — not for repo
+dashboard/spend_state.json
+
+# Nested repo copy — should not exist here
+TAO-OS/

@@ -150,8 +150,16 @@ STABILITY_FLAG="true"
 # changes — blank lines or reordered rows break 'awk NR==2'. Fix: grep for any
 # read_watts: use RAPL energy counters (works even with C-states disabled).
 # Turbostat fails with "Insanely slow TSC rate" when C-states are off — RAPL is immune.
+# AMD: uses amd_energy powercap path (same sysfs interface, same units as Intel RAPL).
 read_watts() {
     local rapl="/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/energy_uj"
+
+    # AMD fallback path: amd_energy exposes the same interface under a different name
+    if [[ ! -f "$rapl" ]]; then
+        local amd_rapl
+        amd_rapl=$(ls /sys/devices/virtual/powercap/*/energy_uj 2>/dev/null | head -1)
+        [[ -n "$amd_rapl" ]] && rapl="$amd_rapl"
+    fi
 
     # Primary: RAPL energy counter delta over 1 second (works with or without C-states)
     if [[ -f "$rapl" ]]; then
