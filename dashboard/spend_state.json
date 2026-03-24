@@ -1,0 +1,15 @@
+{
+  "date": "2026-03-24",
+  "estimated_usd": 1.2419,
+  "cap_usd": 4.0,
+  "pct_of_cap": 31.0,
+  "cron_usd": 0.0,
+  "session_usd": 1.2419,
+  "cron_calls": 0,
+  "session_calls": 93,
+  "input_tokens": 2469429,
+  "output_tokens": 25566,
+  "breakdown": [],
+  "checked_at": "2026-03-24T00:00:01.987916",
+  "note": "exact costs from session usage entries"
+}
