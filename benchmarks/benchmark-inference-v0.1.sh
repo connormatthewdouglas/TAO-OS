@@ -16,6 +16,42 @@ set -euo pipefail
 
 PRESET_SCRIPT="${1:-../cursiveos-presets-v0.8.sh}"
 
+# ── VRAM detection ────────────────────────────────────────────────────────────
+# Returns GPU VRAM in whole GiB (0 if undetectable).
+# Checks NVIDIA → AMD sysfs → Intel Arc sysfs in order.
+detect_vram_gb() {
+    local bytes=0
+    if command -v nvidia-smi &>/dev/null; then
+        local mib
+        mib=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits \
+              2>/dev/null | head -1 | tr -d ' ')
+        [[ "$mib" =~ ^[0-9]+$ ]] && bytes=$(( mib * 1024 * 1024 ))
+    fi
+    if [[ $bytes -eq 0 ]]; then
+        for f in /sys/class/drm/card*/device/mem_info_vram_total; do
+            [[ -f "$f" ]] && bytes=$(cat "$f" 2>/dev/null) && break
+        done
+    fi
+    if [[ $bytes -eq 0 ]]; then
+        for f in /sys/class/drm/card*/prelim_lmem_total_bytes; do  # Intel Arc
+            [[ -f "$f" ]] && bytes=$(cat "$f" 2>/dev/null) && break
+        done
+    fi
+    echo $(( bytes / 1073741824 ))
+}
+
+# Model sizing guide (Q4_K_M approximate VRAM):
+#   phi3       3.8B  ~2.2 GB  → good for 4 GB+ GPUs
+#   mistral    7B    ~4.1 GB  → good for 8 GB+ GPUs
+#   tinyllama  1.1B  ~0.6 GB  → too small to show GPU delta (fallback only)
+_recommend_model_for_vram() {
+    local vram_gb="$1"
+    if   [[ $vram_gb -ge 8 ]]; then echo "mistral:4.1 GB"
+    elif [[ $vram_gb -ge 4 ]]; then echo "phi3:2.2 GB"
+    else                             echo ":"   # too small, no recommendation
+    fi
+}
+
 # Auto-select best available model — larger models stress VRAM/bandwidth
 # where GPU freq and THP settings actually show a delta. TinyLlama is too
 # small: the Arc A750 hits its hardware ceiling at any governor setting.
@@ -44,24 +80,40 @@ else
         ls /sys/class/drm/card*/gt/gt0/rps_min_freq_mhz > /dev/null 2>&1 \
             && _has_discrete_gpu=true   # Intel Arc
         if [[ "$_has_discrete_gpu" == true ]]; then
-            echo ""
-            echo "  Only tinyllama is installed — too small to stress your GPU."
-            echo "  TinyLlama hits the hardware ceiling at any governor setting,"
-            echo "  so inference delta will be ~0% regardless of tuning."
-            echo ""
-            echo "  Recommended: mistral (7B, 4.1 GB) — fits any 8 GB+ GPU and"
-            echo "  shows real improvement with GPU frequency and memory tuning."
-            echo ""
-            read -rp "  Download mistral now? [Y/N]: " _pull_answer </dev/tty
-            if [[ "${_pull_answer,,}" == "y" ]]; then
-                echo "  Pulling mistral..."
-                ollama pull mistral && MODEL="mistral" \
-                    && echo "  ✓ mistral ready." \
-                    || echo "  Pull failed — continuing with tinyllama."
+            _vram_gb=$(detect_vram_gb)
+            _rec=$(_recommend_model_for_vram "$_vram_gb")
+            _rec_model="${_rec%%:*}"
+            _rec_size="${_rec##*:}"
+
+            if [[ -z "$_rec_model" ]]; then
+                # GPU present but VRAM too small for anything better
+                echo ""
+                echo "  GPU detected but VRAM appears to be ${_vram_gb} GB or less."
+                echo "  TinyLlama (~0.6 GB) is the best fit — delta may be near-zero."
+                echo ""
             else
-                echo "  Continuing with tinyllama — inference delta may be near-zero."
+                echo ""
+                echo "  Only tinyllama is installed — too small to stress your GPU."
+                echo "  TinyLlama hits the hardware ceiling at any governor setting,"
+                echo "  so inference delta will be ~0% regardless of tuning."
+                echo ""
+                if [[ $_vram_gb -gt 0 ]]; then
+                    echo "  GPU VRAM detected: ${_vram_gb} GB"
+                fi
+                echo "  Recommended: ${_rec_model} (${_rec_size}) — fits your GPU and"
+                echo "  shows real improvement with frequency and memory tuning."
+                echo ""
+                read -rp "  Download ${_rec_model} now? [Y/N]: " _pull_answer </dev/tty
+                if [[ "${_pull_answer,,}" == "y" ]]; then
+                    echo "  Pulling ${_rec_model}..."
+                    ollama pull "$_rec_model" && MODEL="$_rec_model" \
+                        && echo "  ✓ ${_rec_model} ready." \
+                        || echo "  Pull failed — continuing with tinyllama."
+                else
+                    echo "  Continuing with tinyllama — inference delta may be near-zero."
+                fi
+                echo ""
             fi
-            echo ""
         fi
     fi
 fi
