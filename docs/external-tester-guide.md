@@ -40,7 +40,7 @@ CursiveOS sets swappiness to 0 (never swap) and enables Transparent Huge Pages. 
 One command, copy-paste from the GitHub README:
 
 ```bash
-git clone https://github.com/connormatthewdouglas/CursiveOS.git 2>/dev/null; git -C ~/CursiveOS fetch origin && git -C ~/CursiveOS reset --hard origin/main; chmod +x ~/CursiveOS/cursiveos-full-test-v1.4.sh; cd ~/CursiveOS && bash cursiveos-full-test-v1.4.sh
+git clone https://github.com/connormatthewdouglas/CursiveOS.git 2>/dev/null; git -C ~/CursiveOS pull --ff-only 2>/dev/null || true; chmod +x ~/CursiveOS/cursiveos-full-test-v1.4.sh; cd ~/CursiveOS && bash cursiveos-full-test-v1.4.sh
 ```
 
 It will:

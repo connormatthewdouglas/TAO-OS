@@ -3,7 +3,7 @@
 **AI-optimized Linux for Bittensor miners. One command. Measurable results.**
 
 ```bash
-git clone https://github.com/connormatthewdouglas/CursiveOS.git 2>/dev/null; git -C ~/CursiveOS fetch origin && git -C ~/CursiveOS reset --hard origin/main; chmod +x ~/CursiveOS/cursiveos-full-test-v1.4.sh; cd ~/CursiveOS && bash cursiveos-full-test-v1.4.sh
+git clone https://github.com/connormatthewdouglas/CursiveOS.git 2>/dev/null; git -C ~/CursiveOS pull --ff-only 2>/dev/null || true; chmod +x ~/CursiveOS/cursiveos-full-test-v1.4.sh; cd ~/CursiveOS && bash cursiveos-full-test-v1.4.sh
 ```
 
 Runs all benchmarks, applies presets, shows you exactly what you gain. All changes revert automatically. Works whether you've cloned before or not.
