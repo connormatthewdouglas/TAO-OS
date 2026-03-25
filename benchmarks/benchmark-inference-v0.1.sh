@@ -114,19 +114,48 @@ fi
 # ── Model validation ─────────────────────────────────────────────────────────
 # Quick 5-token test to catch silent failures before wasting a full benchmark run.
 # Arc A750 Vulkan bug: models 3B+ return 0 tokens silently (driver crashes internally).
-# If validation fails, fall back to tinyllama which is known-good on all hardware.
+# On failure: step down the preference chain, auto-pull the next model, and retry.
+# Only reaches tinyllama if every larger model fails on this hardware.
+_MODEL_PREF_CHAIN=(llama3 mistral llama3.2 phi3 qwen2 tinyllama)
+
+_validate_model() {
+    curl -s --max-time 30 http://localhost:11434/api/generate \
+        -d "{\"model\":\"$1\",\"prompt\":\"Hi\",\"stream\":false,\"options\":{\"num_predict\":5}}" \
+        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('eval_count',0))" 2>/dev/null || echo "0"
+}
+
 if [[ "$MODEL" != "tinyllama" ]]; then
     echo "  Validating $MODEL (quick 5-token test)..."
-    _test=$(curl -s --max-time 30 http://localhost:11434/api/generate \
-        -d "{\"model\":\"$MODEL\",\"prompt\":\"Hi\",\"stream\":false,\"options\":{\"num_predict\":5}}" \
-        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('eval_count',0))" 2>/dev/null || echo "0")
-    if [[ "$_test" == "0" ]]; then
-        echo "  ✗ $MODEL returned 0 tokens — not compatible with this GPU/driver combination."
-        echo "  (Known issue: Arc A750 Vulkan driver crashes silently on 3B+ parameter models.)"
-        echo "  Falling back to tinyllama..."
-        MODEL="tinyllama"
+    _tok=$(_validate_model "$MODEL")
+    if [[ "$_tok" != "0" ]]; then
+        echo "  ✓ $MODEL validated (${_tok} tokens)."
     else
-        echo "  ✓ $MODEL validated (${_test} tokens)."
+        echo "  ✗ $MODEL returned 0 tokens — not compatible with this GPU/driver."
+        echo "  (Arc A750 Vulkan driver silently crashes on 3B+ models — trying next option.)"
+        _found=false
+        _past_current=false
+        for _fb in "${_MODEL_PREF_CHAIN[@]}"; do
+            if [[ "$_fb" == "$MODEL" ]]; then _past_current=true; continue; fi
+            [[ "$_past_current" == false ]] && continue
+            echo "  Trying $_fb..."
+            if ! ollama list 2>/dev/null | grep -q "^${_fb}:"; then
+                echo "  Pulling $_fb..."
+                ollama pull "$_fb" || { echo "  Pull failed — skipping."; continue; }
+            fi
+            _tok=$(_validate_model "$_fb")
+            if [[ "$_tok" != "0" ]]; then
+                MODEL="$_fb"
+                echo "  ✓ $_fb works on this hardware (${_tok} tokens) — using for benchmark."
+                _found=true
+                break
+            else
+                echo "  ✗ $_fb also failed."
+            fi
+        done
+        if [[ "$_found" == false ]]; then
+            echo "  All models failed — inference delta will be minimal on this hardware."
+            MODEL="tinyllama"
+        fi
     fi
 fi
 
