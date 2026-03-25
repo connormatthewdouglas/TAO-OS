@@ -33,6 +33,37 @@ else
         echo "No supported model found. Pull one first: ollama pull tinyllama"
         exit 1
     fi
+
+    # If we fell back to tinyllama and a discrete GPU is present, it won't be
+    # stressed enough to show a real delta. Offer to pull mistral (7B, 4.1 GB)
+    # which actually fills VRAM and shows meaningful GPU freq improvements.
+    if [[ "$MODEL" == "tinyllama" ]]; then
+        _has_discrete_gpu=false
+        lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -ivE 'Intel.*(HD|UHD|Iris|Core)' \
+            > /dev/null 2>&1 && _has_discrete_gpu=true
+        ls /sys/class/drm/card*/gt/gt0/rps_min_freq_mhz > /dev/null 2>&1 \
+            && _has_discrete_gpu=true   # Intel Arc
+        if [[ "$_has_discrete_gpu" == true ]]; then
+            echo ""
+            echo "  Only tinyllama is installed — too small to stress your GPU."
+            echo "  TinyLlama hits the hardware ceiling at any governor setting,"
+            echo "  so inference delta will be ~0% regardless of tuning."
+            echo ""
+            echo "  Recommended: mistral (7B, 4.1 GB) — fits any 8 GB+ GPU and"
+            echo "  shows real improvement with GPU frequency and memory tuning."
+            echo ""
+            read -rp "  Download mistral now? [Y/N]: " _pull_answer </dev/tty
+            if [[ "${_pull_answer,,}" == "y" ]]; then
+                echo "  Pulling mistral..."
+                ollama pull mistral && MODEL="mistral" \
+                    && echo "  ✓ mistral ready." \
+                    || echo "  Pull failed — continuing with tinyllama."
+            else
+                echo "  Continuing with tinyllama — inference delta may be near-zero."
+            fi
+            echo ""
+        fi
+    fi
 fi
 PASSES=5        # inference calls per pass (more = more stable average)
 WARMUP=1        # throwaway calls before measuring (GPU cold start)
