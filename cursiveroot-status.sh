@@ -44,7 +44,9 @@ for m in machines:
             cold = f"{r['coldstart_delta_pct']:.2f}%"  if r.get("coldstart_delta_pct") is not None else "N/A"
             warm = f"{r['sustained_delta_pct']:+.2f}%"  if r.get("sustained_delta_pct") is not None else "N/A"
             pwr  = f"{r['power_delta_w']:+.1f}W"        if r.get("power_delta_w")       is not None else "N/A"
-            print(f"     {i:<4} {r['run_date']:<12} {r['preset_version']:<8} {net:>10} {cold:>13} {warm:>12} {pwr:>9}")
+            date_s   = r['run_date']     or "N/A"
+            preset_s = r['preset_version'] or "N/A"
+            print(f"     {i:<4} {date_s:<12} {preset_s:<8} {net:>10} {cold:>13} {warm:>12} {pwr:>9}")
         print(f"     {'':4} {'':12} {'':8} {'':>10} {'':>13} {'':>12} {'↑ newest':>9}")
     print()
 PYEOF
