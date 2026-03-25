@@ -65,6 +65,53 @@ if ! ollama list 2>/dev/null | grep -q "$MODEL"; then
     exit 1
 fi
 
+# ── AMD ROCm auto-install ─────────────────────────────────────────────────────
+# If an AMD GPU is present but ROCm isn't installed, offer to install it now.
+# ROCm enables GPU inference on RX 470/480/570/580/590 (and newer AMD cards).
+# After install, CursiveOS presets apply HSA_OVERRIDE and restart ollama —
+# everything works in the same session, no reboot needed.
+_amd_gpu=$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -iE 'AMD|ATI|Radeon' || true)
+if [[ -n "$_amd_gpu" ]] && ! command -v rocm-smi &>/dev/null && ! [[ -d /opt/rocm ]]; then
+    echo ""
+    echo "  AMD GPU detected: $_amd_gpu"
+    echo "  ROCm is not installed — Ollama will use CPU inference without it."
+    echo ""
+    read -rp "  Install ROCm now for GPU inference? [Y/N]: " _rocm_answer </dev/tty
+    if [[ "${_rocm_answer,,}" == "y" ]]; then
+        echo "  Installing ROCm..."
+        if ! command -v apt-get &>/dev/null; then
+            echo "  Auto-install requires Ubuntu/Debian (apt not found)."
+            echo "  Install manually: https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html"
+        else
+            _codename=$(lsb_release -cs 2>/dev/null || echo "")
+            if [[ -z "$_codename" ]]; then
+                echo "  Could not detect distro codename — install manually:"
+                echo "  https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html"
+            else
+                s apt-get install -y wget gnupg 2>/dev/null
+                wget -qO /tmp/cursiveos-rocm.gpg \
+                    https://repo.radeon.com/rocm/rocm.gpg.key 2>/dev/null \
+                    && echo "$SP" | sudo -S gpg --batch --yes --dearmor \
+                        -o /etc/apt/trusted.gpg.d/rocm.gpg \
+                        /tmp/cursiveos-rocm.gpg 2>/dev/null \
+                    && echo "$SP" | sudo -S bash -c \
+                        "echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/latest ${_codename} main' \
+                        > /etc/apt/sources.list.d/rocm.list" \
+                    && s apt-get update -qq \
+                    && s apt-get install -y rocm \
+                    && s usermod -aG video,render "$USER" \
+                    && echo "  ✓ ROCm installed — GPU inference will be active for the tuned pass." \
+                    || echo "  ROCm install failed — continuing with CPU inference."
+                rm -f /tmp/cursiveos-rocm.gpg
+            fi
+        fi
+    else
+        echo "  Skipping ROCm install — inference benchmark will run on CPU."
+        echo "  (Network and cold-start benchmarks are unaffected.)"
+        echo ""
+    fi
+fi
+
 # Ensure clean baseline — undo any previously applied presets
 log "Ensuring clean state for baseline..."
 bash "$PRESET_SCRIPT" --undo 2>/dev/null | grep -E "Revert|reverted|No backup" | sed 's/^/  /' || true
