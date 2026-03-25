@@ -10,10 +10,10 @@
 
 Self-fleet validation is in progress. v0.8 preset stack confirmed (wq-013/014/015 all passed individual + integration tests). Power bug fixed (RAPL reads, b7664f3). v1.4 schema live — hardware fingerprint, stability flag, split power fields. CursiveRoot auto-submitting from both fleet machines.
 
-**3 machines in CursiveRoot:**
-- Vega — AMD Ryzen 7 5700 + Arc A750 — 25 runs, primary test rig
-- Stardust — AMD FX-8350 + RX 580 — 4 runs, needs full v1.4 validation run
-- bda4bd63 — AMD Ryzen 7 5700 + Arc A750 — 1 run (duplicate Vega entry, investigate)
+**3 machines in CursiveRoot (49 runs total as of 2026-03-25):**
+- Vega — AMD Ryzen 7 5700 + Arc A750 — 31 runs, primary test rig
+- Stardust — AMD FX-8350 + RX 580 — 17 runs
+- bda4bd63 — AMD Ryzen 7 5700 + Arc A750 — 1 run (early partial entry)
 
 **v0.8 confirmed stack (3 tweaks on top of v0.7 base):**
 - `kernel.sched_util_clamp_min=128` (wq-013)
@@ -103,12 +103,21 @@ These are approved tasks ready for Copper to execute — do not re-debate strate
 
 ---
 
+## Benchmark Limitations (known, documented)
+
+- **Inference delta is small on GPU (~5–15%)** — network is the headline (+400–900%). Inference improvement from GPU freq + THP is real but modest for single-stream workloads.
+- **Concurrent throughput not measured** — this is where scheduler tuning (autogroup, granularity, sched_util_clamp_min) shows its real inference impact. Multiple parallel requests stress the scheduler in ways single-stream doesn't.
+- **VRAM model table incomplete** — inference benchmark covers 4GB+ (phi3) and 8GB+ (mistral). Cards with 2–3GB VRAM have no recommendation yet.
+- **ROCm auto-install Ubuntu/Debian only** — other distros get a manual URL. Covers the majority of mining rigs.
+- **CPU inference correctly suppressed** — cold-start is the honest CPU story; sustained CPU inference delta is unreliable due to thermal variance from C-state changes.
+
 ## Parking Lot (post-v1.5)
 
 - **Full NVIDIA GPU tuning** — power limits, persistence mode, clock management targeting desktop RTX cards (3080/4090). Dedicated workstream, requires desktop NVIDIA hardware to validate properly.
+- **Concurrent throughput benchmark** — measure requests/sec under parallel load. Scheduler tweaks show here.
+- **VRAM model table expansion** — add llama3.2:1b (~0.8GB), qwen2:1.5b (~0.9GB) for 2–3GB cards.
 - Intel Arc SYCL backend for llama.cpp (current Vulkan crashes on 3B+)
 - DePIN incentive layer (Hivemapper/Helium style)
-- Batched inference benchmark — multi-request throughput under load
 - SN64 Chutes live validator test
 - Bittensor subnet design (v3.0)
 - Bootable ISO (v4.0+)
