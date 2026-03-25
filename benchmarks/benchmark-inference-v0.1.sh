@@ -108,6 +108,8 @@ infer() {
         -d "{\"model\": \"$MODEL\", \"prompt\": \"$PROMPT\", \"stream\": false, \"options\": {\"num_predict\": 100, \"num_ctx\": 1024, \"num_batch\": 128}}"
 }
 
+LAST_PASS_PROC=""   # set by run_pass — tracks whether last pass ran on GPU or CPU
+
 # ── Run a full pass (warmup + N measured calls) ──────────────────────────────
 run_pass() {
     local label="$1"
@@ -124,45 +126,14 @@ run_pass() {
     log "  Warming up ($WARMUP call)..."
     for _ in $(seq 1 $WARMUP); do infer > /dev/null; done
 
-    # Confirm GPU after model is loaded — abort measured passes if on CPU.
-    # CPU inference cannot produce a reliable delta: disabling C-states causes
-    # thermal buildup that throttles the tuned pass, producing meaningless negatives.
+    # Confirm whether model is on GPU or CPU — logged for visibility.
+    # We always measure both passes; delta is suppressed later if TUNED stays on CPU.
+    # (Presets may apply ROCm override + restart ollama between passes, moving an AMD
+    # GPU from CPU→GPU inference — that's a real, large delta worth capturing.)
     local proc
     proc=$(ollama ps 2>/dev/null | grep "$MODEL" | grep -oP '[0-9]+% (GPU|CPU)' || echo "not loaded")
     log "  Processor: $proc"
-    if ! echo "$proc" | grep -qi "gpu"; then
-        log "  SKIP: model running on CPU — sustained inference delta suppressed."
-        log "        (C-state disable causes thermal variance; see cold-start benchmark for CPU impact.)"
-        # Detect why — AMD GPU present but ROCm not wired up is fixable
-        local amd_gpu
-        amd_gpu=$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -iE 'AMD|ATI|Radeon' || true)
-        local nvidia_gpu
-        nvidia_gpu=$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -i 'NVIDIA' || true)
-        if [[ -n "$amd_gpu" ]]; then
-            log ""
-            log "  NOTE: AMD GPU detected but Ollama is not using it:"
-            log "    $amd_gpu"
-            log "  This is a ROCm configuration issue, not a hardware limitation."
-            log "  Fix for RX 470/480/570/580/590 (gfx803 / Polaris):"
-            log "    1. Install ROCm:  https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html"
-            log "    2. Add to groups: sudo usermod -aG video,render \$USER"
-            log "    3. Create /etc/systemd/system/ollama.service.d/override.conf:"
-            log "         [Service]"
-            log "         Environment=HSA_OVERRIDE_GFX_VERSION=9.0.0"
-            log "    4. sudo systemctl daemon-reload && sudo systemctl restart ollama"
-        elif [[ -n "$nvidia_gpu" ]]; then
-            log ""
-            log "  NOTE: NVIDIA GPU detected but Ollama is not using it:"
-            log "    $nvidia_gpu"
-            log "  Ensure nvidia-container-toolkit is installed and ollama can see the GPU:"
-            log "    nvidia-smi   (should show the GPU)"
-            log "    ollama run tinyllama   (check 'ollama ps' for GPU offload)"
-        else
-            log "  (No discrete GPU detected — CPU inference is expected on this machine.)"
-        fi
-        PASS_RESULT="N/A"
-        return 0
-    fi
+    LAST_PASS_PROC="$proc"
 
     # Measured passes
     log "  Running $PASSES inference passes..."
@@ -232,8 +203,30 @@ log "Reverting presets..."
 bash "$PRESET_SCRIPT" --undo 2>&1 | grep "✓\|Revert" | sed 's/^/  /' | tee -a "$LOG_FILE"
 
 # ── Results ───────────────────────────────────────────────────────────────────
+TUNED_PROC="$LAST_PASS_PROC"   # captured after the tuned pass
+
 if [[ "$BASELINE" == "N/A" || "$TUNED" == "N/A" ]]; then
     DELTA="N/A"
+elif ! echo "$TUNED_PROC" | grep -qi "gpu"; then
+    # Tuned pass still on CPU — C-state changes cause thermal variance,
+    # delta is unreliable. Detect and explain.
+    DELTA="N/A"
+    amd_gpu=$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -iE 'AMD|ATI|Radeon' || true)
+    nvidia_gpu=$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -i 'NVIDIA' || true)
+    log ""
+    if [[ -n "$amd_gpu" ]]; then
+        log "  NOTE: AMD GPU present but Ollama used CPU for both passes."
+        log "    $amd_gpu"
+        log "  ROCm may not be installed. Once installed, CursiveOS presets will"
+        log "  automatically apply HSA_OVERRIDE_GFX_VERSION=9.0.0 to enable GPU inference."
+        log "  Install ROCm: https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html"
+    elif [[ -n "$nvidia_gpu" ]]; then
+        log "  NOTE: NVIDIA GPU present but Ollama used CPU for both passes."
+        log "    $nvidia_gpu"
+        log "  Check: nvidia-smi  and  ollama ps  to diagnose GPU offload."
+    else
+        log "  (No discrete GPU — CPU inference delta suppressed due to thermal variance.)"
+    fi
 else
     DELTA=$(echo "scale=2; ($TUNED - $BASELINE) * 100 / $BASELINE" | bc -l | awk '{printf "%.2f", $1}')
 fi

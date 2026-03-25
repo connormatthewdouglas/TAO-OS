@@ -38,6 +38,18 @@ for card in /sys/class/drm/card*/gt/gt0; do
     fi
 done
 
+# AMD discrete GPU + ROCm detection
+# If ROCm is installed but ollama isn't using the GPU, HSA_OVERRIDE_GFX_VERSION=9.0.0
+# makes ROCm treat Polaris (RX 470/480/570/580/590, gfx803) as Vega — enabling GPU inference.
+AMD_GPU_ROCM=""
+if lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -iE 'AMD|ATI|Radeon' > /dev/null 2>&1; then
+    if command -v rocm-smi &>/dev/null || [[ -d /opt/rocm ]]; then
+        AMD_GPU_ROCM="1"
+    fi
+fi
+ROCM_OVERRIDE_DIR="/etc/systemd/system/ollama.service.d"
+ROCM_OVERRIDE_FILE="$ROCM_OVERRIDE_DIR/cursiveos-rocm-override.conf"
+
 # AMD CPU boost sysfs path
 BOOST_PATH="/sys/devices/system/cpu/cpufreq/boost"
 
@@ -54,7 +66,9 @@ done
 echo "CursiveOS Presets v0.8"
 echo "----------------------------------------"
 [[ -n "$GPU_GT" ]]  && echo "GPU: Intel Arc detected ($GPU_GT)" \
-                    || echo "GPU: Intel Arc not found – GPU/SYCL tweaks will be skipped"
+                    || echo "GPU: Intel Arc not found – Arc GPU/SYCL tweaks will be skipped"
+[[ -n "$AMD_GPU_ROCM" ]] && echo "GPU: AMD + ROCm detected – HSA_OVERRIDE will be applied" \
+                         || true
 [[ -f "$BOOST_PATH" ]] && echo "CPU boost: sysfs path found" \
                        || echo "CPU boost: sysfs path not found – skipping"
 [[ -n "$C6_IDX" ]] && echo "CPU C6: found at state${C6_IDX}" \
@@ -162,6 +176,7 @@ if [[ "$ACTION" == "--apply-temp" ]]; then
         echo "sycl_profile_existed: $([[ -f $SYCL_PROFILE ]] && echo 1 || echo 0)" >> "$STATE_FILE"
         [[ -f "$SYCL_PROFILE" ]] && cp "$SYCL_PROFILE" "${SYCL_PROFILE}.bak" 2>/dev/null || true
     fi
+    echo "rocm_override_existed: $([[ -f $ROCM_OVERRIDE_FILE ]] && echo 1 || echo 0)" >> "$STATE_FILE"
     [[ -f "$BOOST_PATH" ]] && echo "cpu_boost: $(cat $BOOST_PATH)" >> "$STATE_FILE"
 
     # ── Inherited v0.6 tweaks ─────────────────────────────────────────────────
@@ -212,6 +227,14 @@ SYCL_EOF"
         echo "✓ SYCL persistent cache: enabled (Arc)"
     else
         echo "  GPU GT path not found – skipping Arc GPU tweaks"
+    fi
+    if [[ -n "$AMD_GPU_ROCM" ]]; then
+        sc "mkdir -p $ROCM_OVERRIDE_DIR"
+        sc "printf '[Service]\nEnvironment=HSA_OVERRIDE_GFX_VERSION=9.0.0\n' > $ROCM_OVERRIDE_FILE"
+        sc "systemctl daemon-reload"
+        s systemctl restart ollama
+        sleep 3
+        echo "✓ AMD GPU (ROCm): HSA_OVERRIDE_GFX_VERSION=9.0.0 — Polaris GPU enabled for inference"
     fi
 
     # ── v0.7 new tweaks ───────────────────────────────────────────────────────
@@ -334,6 +357,14 @@ elif [[ "$ACTION" == "--undo" ]]; then
 
         BOOST=$(get_val cpu_boost)
         [[ -n "$BOOST" && -f "$BOOST_PATH" ]] && sc "echo $BOOST > $BOOST_PATH" 2>/dev/null || true
+
+        ROCM_EXISTED=$(get_val rocm_override_existed)
+        if [[ "$ROCM_EXISTED" == "0" && -f "$ROCM_OVERRIDE_FILE" ]]; then
+            s rm -f "$ROCM_OVERRIDE_FILE"
+            sc "systemctl daemon-reload"
+            s systemctl restart ollama
+            sleep 2
+        fi
 
         rm -f "$STATE_FILE"
         echo "✓ All v0.8 settings reverted."
