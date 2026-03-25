@@ -133,6 +133,33 @@ run_pass() {
     if ! echo "$proc" | grep -qi "gpu"; then
         log "  SKIP: model running on CPU — sustained inference delta suppressed."
         log "        (C-state disable causes thermal variance; see cold-start benchmark for CPU impact.)"
+        # Detect why — AMD GPU present but ROCm not wired up is fixable
+        local amd_gpu
+        amd_gpu=$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -iE 'AMD|ATI|Radeon' || true)
+        local nvidia_gpu
+        nvidia_gpu=$(lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -i 'NVIDIA' || true)
+        if [[ -n "$amd_gpu" ]]; then
+            log ""
+            log "  NOTE: AMD GPU detected but Ollama is not using it:"
+            log "    $amd_gpu"
+            log "  This is a ROCm configuration issue, not a hardware limitation."
+            log "  Fix for RX 470/480/570/580/590 (gfx803 / Polaris):"
+            log "    1. Install ROCm:  https://rocm.docs.amd.com/en/latest/deploy/linux/quick_start.html"
+            log "    2. Add to groups: sudo usermod -aG video,render \$USER"
+            log "    3. Create /etc/systemd/system/ollama.service.d/override.conf:"
+            log "         [Service]"
+            log "         Environment=HSA_OVERRIDE_GFX_VERSION=9.0.0"
+            log "    4. sudo systemctl daemon-reload && sudo systemctl restart ollama"
+        elif [[ -n "$nvidia_gpu" ]]; then
+            log ""
+            log "  NOTE: NVIDIA GPU detected but Ollama is not using it:"
+            log "    $nvidia_gpu"
+            log "  Ensure nvidia-container-toolkit is installed and ollama can see the GPU:"
+            log "    nvidia-smi   (should show the GPU)"
+            log "    ollama run tinyllama   (check 'ollama ps' for GPU offload)"
+        else
+            log "  (No discrete GPU detected — CPU inference is expected on this machine.)"
+        fi
         PASS_RESULT="N/A"
         return 0
     fi
