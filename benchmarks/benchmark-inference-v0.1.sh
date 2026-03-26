@@ -111,6 +111,21 @@ else
         fi
     fi
 fi
+
+# ── Start ollama if needed (must be up before model validation below) ─────────
+if ! systemctl is-active --quiet ollama; then
+    echo "Ollama not running. Starting..."
+    if [[ -z "${TAO_SUDO_PASS:-}" ]]; then
+        read -rsp "[CursiveOS] sudo password: " TAO_SUDO_PASS && echo
+    fi
+    echo "$TAO_SUDO_PASS" | sudo -S systemctl start ollama 2>/dev/null
+    sleep 3
+fi
+
+# Fixed prompt — consistent workload, generates ~80-120 tokens
+# Defined here so it's available for model validation below.
+PROMPT="Explain how Bittensor's proof of intelligence consensus mechanism works and why it rewards miners for useful AI computation rather than wasteful hash calculations. Be concise."
+
 # ── Model validation ─────────────────────────────────────────────────────────
 # Quick 5-token test to catch silent failures before wasting a full benchmark run.
 # Arc A750 Vulkan bug: models 3B+ return 0 tokens silently (driver crashes internally).
@@ -118,14 +133,16 @@ fi
 # Only reaches tinyllama if every larger model fails on this hardware.
 _MODEL_PREF_CHAIN=(llama3 mistral llama3.2 phi3 qwen2 tinyllama)
 
+# Validation uses the real benchmark prompt and 50 tokens — short runs (5 tokens, "Hi")
+# don't trigger the Arc A750 Vulkan crash; need actual inference load to expose it.
 _validate_model() {
-    curl -s --max-time 30 http://localhost:11434/api/generate \
-        -d "{\"model\":\"$1\",\"prompt\":\"Hi\",\"stream\":false,\"options\":{\"num_predict\":5}}" \
+    curl -s --max-time 90 http://localhost:11434/api/generate \
+        -d "{\"model\":\"$1\",\"prompt\":\"$PROMPT\",\"stream\":false,\"options\":{\"num_predict\":50,\"num_ctx\":1024,\"num_batch\":128}}" \
         | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('eval_count',0))" 2>/dev/null || echo "0"
 }
 
 if [[ "$MODEL" != "tinyllama" ]]; then
-    echo "  Validating $MODEL (quick 5-token test)..."
+    echo "  Validating $MODEL (50-token test with benchmark prompt)..."
     _tok=$(_validate_model "$MODEL")
     if [[ "$_tok" != "0" ]]; then
         echo "  ✓ $MODEL validated (${_tok} tokens)."
@@ -175,16 +192,7 @@ PASS_RESULT=""
 
 log() { echo "$1" | tee -a "$LOG_FILE"; }
 
-# Fixed prompt — consistent workload, generates ~80-120 tokens
-PROMPT="Explain how Bittensor's proof of intelligence consensus mechanism works and why it rewards miners for useful AI computation rather than wasteful hash calculations. Be concise."
-
 # ── Preflight checks ─────────────────────────────────────────────────────────
-if ! systemctl is-active --quiet ollama; then
-    echo "Ollama not running. Starting..."
-    s systemctl start ollama
-    sleep 3
-fi
-
 if ! ollama list 2>/dev/null | grep -q "$MODEL"; then
     echo "Model '$MODEL' not found. Pull it first: ollama pull $MODEL"
     exit 1
