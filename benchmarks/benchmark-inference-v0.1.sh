@@ -321,8 +321,19 @@ run_pass() {
     # We always measure both passes; delta is suppressed later if TUNED stays on CPU.
     # (Presets may apply ROCm override + restart ollama between passes, moving an AMD
     # GPU from CPU→GPU inference — that's a real, large delta worth capturing.)
-    local proc
-    proc=$(ollama ps 2>/dev/null | grep "$MODEL" | grep -oP '[0-9]+% (GPU|CPU)' || echo "not loaded")
+    # Detect GPU vs CPU — ollama ps format varies by backend:
+    #   NVIDIA/Arc:  "100% GPU"
+    #   ROCm (AMD):  may show device name or just "GPU" without percentage
+    # Check for "gpu" anywhere in the model's ps line rather than exact regex.
+    local proc _ps_line
+    _ps_line=$(ollama ps 2>/dev/null | grep -i "$MODEL" || true)
+    if echo "$_ps_line" | grep -qi "gpu"; then
+        proc=$(echo "$_ps_line" | grep -oP '[0-9]+% (GPU|CPU)' || echo "100% GPU")
+    elif echo "$_ps_line" | grep -qi "cpu"; then
+        proc="100% CPU"
+    else
+        proc="not loaded"
+    fi
     log "  Processor: $proc"
     LAST_PASS_PROC="$proc"
 
