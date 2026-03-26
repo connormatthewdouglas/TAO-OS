@@ -90,7 +90,7 @@ fi
 # models 3B+ silently return 0 tokens. Uses num_predict:100 to match the actual
 # benchmark load (50-token tests pass but 100-token runs crash).
 # Validated MODEL is exported so both coldstart and sustained benchmarks use it.
-if [[ "$SKIP_INFERENCE" != "1" && "$MODEL" != "tinyllama" ]]; then
+if [[ "$SKIP_INFERENCE" != "1" ]]; then
     _VAL_PROMPT="Explain how Bittensor's proof of intelligence consensus mechanism works and why it rewards miners for useful AI computation rather than wasteful hash calculations. Be concise."
     _VAL_PREF_CHAIN=(llama3 mistral llama3.2 phi3 qwen2 tinyllama)
     _val_model() {
@@ -98,30 +98,66 @@ if [[ "$SKIP_INFERENCE" != "1" && "$MODEL" != "tinyllama" ]]; then
             -d "{\"model\":\"$1\",\"prompt\":\"$_VAL_PROMPT\",\"stream\":false,\"options\":{\"num_predict\":100,\"num_ctx\":1024,\"num_batch\":128}}" \
             | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('eval_count',0))" 2>/dev/null || echo "0"
     }
-    echo "  Validating $MODEL (100-token test)..."
-    _vtok=$(_val_model "$MODEL")
-    if [[ "$_vtok" == "0" ]]; then
-        echo "  ✗ $MODEL returned 0 tokens — not compatible with this GPU/driver."
-        _vfound=false; _vpast=false
-        for _vfb in "${_VAL_PREF_CHAIN[@]}"; do
-            if [[ "$_vfb" == "$MODEL" ]]; then _vpast=true; continue; fi
-            [[ "$_vpast" == false ]] && continue
-            echo "  Trying $_vfb..."
-            if ! ollama list 2>/dev/null | grep -q "^${_vfb}:"; then
-                ollama pull "$_vfb" || { echo "  Pull failed — skipping."; continue; }
+
+    # If only tinyllama is installed but a discrete GPU is present, auto-pull a
+    # better model before validating — same logic as benchmark-inference-v0.1.sh.
+    if [[ "$MODEL" == "tinyllama" ]]; then
+        _has_dgpu=false
+        lspci 2>/dev/null | grep -iE 'VGA|3D|Display' | grep -ivE 'Intel.*(HD|UHD|Iris|Core)' \
+            > /dev/null 2>&1 && _has_dgpu=true || true
+        ls /sys/class/drm/card*/gt/gt0/rps_min_freq_mhz > /dev/null 2>&1 \
+            && _has_dgpu=true || true
+        if [[ "$_has_dgpu" == true ]]; then
+            # Determine VRAM and pick best fitting model
+            _vram=0
+            for _f in /sys/class/drm/card*/device/mem_info_vram_total \
+                       /sys/class/drm/card*/prelim_lmem_total_bytes; do
+                [[ -f "$_f" ]] && _vram=$(( $(cat "$_f" 2>/dev/null || echo 0) / 1073741824 )) && break || true
+            done
+            if   [[ $_vram -ge 8 ]]; then _rec_model="mistral"
+            elif [[ $_vram -ge 4 ]]; then _rec_model="phi3"
+            else                           _rec_model=""
             fi
-            _vtok=$(_val_model "$_vfb")
-            if [[ "$_vtok" != "0" ]]; then
-                MODEL="$_vfb"
-                echo "  ✓ $_vfb works on this hardware (${_vtok} tokens)."
-                _vfound=true; break
-            else
-                echo "  ✗ $_vfb also failed."
+            if [[ -n "$_rec_model" ]] && ! ollama list 2>/dev/null | grep -q "^${_rec_model}:"; then
+                echo "  Discrete GPU detected — auto-installing ${_rec_model} for meaningful benchmark..."
+                ollama pull "$_rec_model" && MODEL="$_rec_model" || true
+            elif [[ -n "$_rec_model" ]]; then
+                MODEL="$_rec_model"
             fi
-        done
-        [[ "$_vfound" == false ]] && MODEL="tinyllama" && echo "  → All models failed — using tinyllama."
-    else
-        echo "  ✓ $MODEL validated (${_vtok} tokens)."
+        fi
+    fi
+
+    # Validate selected model — step down on failure (fixes Arc A750 Vulkan bug)
+    if [[ "$MODEL" != "tinyllama" ]]; then
+        echo "  Validating $MODEL (100-token test)..."
+        _vtok=$(_val_model "$MODEL")
+        if [[ "$_vtok" == "0" ]]; then
+            echo "  ✗ $MODEL returned 0 tokens — not compatible with this GPU/driver."
+            _vpast=false
+            for _vfb in "${_VAL_PREF_CHAIN[@]}"; do
+                if [[ "$_vfb" == "$MODEL" ]]; then _vpast=true; continue; fi
+                [[ "$_vpast" == false ]] && continue
+                echo "  Trying $_vfb..."
+                if ! ollama list 2>/dev/null | grep -q "^${_vfb}:"; then
+                    ollama pull "$_vfb" || { echo "  Pull failed — skipping."; continue; }
+                fi
+                _vtok=$(_val_model "$_vfb")
+                if [[ "$_vtok" != "0" ]]; then
+                    MODEL="$_vfb"
+                    echo "  ✓ $_vfb works on this hardware (${_vtok} tokens)."
+                    break
+                else
+                    echo "  ✗ $_vfb also failed."
+                fi
+            done
+            # If we exhausted the chain, _vtok is still "0"
+            if [[ "$_vtok" == "0" ]]; then
+                MODEL="tinyllama"
+                echo "  → All models failed — using tinyllama."
+            fi
+        else
+            echo "  ✓ $MODEL validated (${_vtok} tokens)."
+        fi
     fi
 fi
 export MODEL
