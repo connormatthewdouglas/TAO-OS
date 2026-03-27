@@ -392,8 +392,19 @@ extract_sustained() {
     if echo "$raw_delta" | grep -q "N/A"; then
         WARM_DELTA="N/A"
     else
-        # Accept integer or decimal percentages; if malformed, treat as N/A
-        WARM_DELTA=$(echo "$raw_delta" | grep -oP '[+\-]?[0-9]+(\.[0-9]+)?%' | head -1 || echo "N/A")
+        # Accept integer/decimal percentages with optional whitespace before '%'
+        WARM_DELTA=$(echo "$raw_delta" | grep -oP '[+\-]?[0-9]+(\.[0-9]+)?\s*%' | head -1 | tr -d ' ' || echo "N/A")
+    fi
+
+    # Fallback: if delta token failed but both rates are numeric, compute delta directly
+    if [[ "$WARM_DELTA" == "N/A" ]]; then
+        local b t
+        b=$(echo "$WARM_BASELINE" | grep -oP '[0-9]+\.?[0-9]*' | head -1 || true)
+        t=$(echo "$WARM_TUNED"    | grep -oP '[0-9]+\.?[0-9]*' | head -1 || true)
+        if [[ -n "$b" && -n "$t" && "$b" != "0" ]]; then
+            WARM_DELTA=$(awk -v b="$b" -v t="$t" 'BEGIN { printf("%+.2f%%", ((t-b)/b)*100) }')
+            echo "[guard] sustained delta recomputed from rates: baseline=${b}, tuned=${t}, delta=${WARM_DELTA}" >&2
+        fi
     fi
 }
 
