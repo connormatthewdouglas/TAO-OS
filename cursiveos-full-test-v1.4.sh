@@ -357,7 +357,12 @@ read_watts() {
 
     if [[ -n "$power_uw" && -f "$power_uw" ]]; then
         local pu watts
-        pu=$(echo "$TAO_SUDO_PASS" | sudo -S cat "$power_uw" 2>/dev/null)
+        # Prefer direct read (many hwmon power files are world-readable)
+        pu=$(cat "$power_uw" 2>/dev/null || true)
+        # Fallback to sudo only if direct read fails
+        if [[ -z "$pu" ]]; then
+            pu=$(echo "$TAO_SUDO_PASS" | sudo -S cat "$power_uw" 2>/dev/null || true)
+        fi
         if [[ -n "$pu" && "$pu" =~ ^[0-9]+$ ]]; then
             watts=$(python3 -c "v=$pu; print(f'{(v/1_000_000) if v>10000 else v:.2f}')" 2>/dev/null)
             if [[ -n "$watts" && "$watts" =~ ^[0-9] ]]; then
@@ -366,7 +371,7 @@ read_watts() {
                 return
             fi
         fi
-        echo "[guard] power hwmon read failed path=$power_uw" >&2
+        echo "[guard] power hwmon read failed path=$power_uw raw=${pu:-empty}" >&2
     fi
 
     # Fallback: turbostat (usually Intel-only)
