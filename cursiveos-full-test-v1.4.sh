@@ -313,6 +313,7 @@ STABILITY_FLAG="true"
 # AMD: uses amd_energy powercap path (same sysfs interface, same units as Intel RAPL).
 read_watts() {
     local rapl="/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/energy_uj"
+    local power_uw=""
 
     # AMD fallback: try loading amd_energy module, then scan powercap sysfs
     if [[ ! -f "$rapl" ]]; then
@@ -322,49 +323,66 @@ read_watts() {
         [[ -n "$amd_rapl" ]] && rapl="$amd_rapl"
     fi
 
-    # Intel Arc (xe driver) hwmon fallback: energy1_input in microjoules (same math)
+    # Intel Arc / GPU energy counters: energy1_input in microjoules (same math)
     if [[ ! -f "$rapl" ]]; then
-        local xe_energy
-        xe_energy=$(ls /sys/class/drm/card*/device/hwmon/hwmon*/energy1_input 2>/dev/null | head -1)
-        [[ -n "$xe_energy" ]] && rapl="$xe_energy"
+        local gpu_energy
+        gpu_energy=$(ls /sys/class/drm/card*/device/hwmon/hwmon*/energy1_input 2>/dev/null | head -1)
+        [[ -n "$gpu_energy" ]] && rapl="$gpu_energy"
     fi
 
-    # Primary: energy counter delta over 1 second (works with or without C-states)
+    # Primary: energy counter delta over 1 second (uJ -> W)
     if [[ -f "$rapl" ]]; then
         local e1 e2 watts
-        # Read energy before
         e1=$(echo "$TAO_SUDO_PASS" | sudo -S cat "$rapl" 2>/dev/null)
-        if [[ -z "$e1" || ! "$e1" =~ ^[0-9]+$ ]]; then
-            echo "N/A"
-            return
+        if [[ -n "$e1" && "$e1" =~ ^[0-9]+$ ]]; then
+            sleep 1
+            e2=$(echo "$TAO_SUDO_PASS" | sudo -S cat "$rapl" 2>/dev/null)
+            if [[ -n "$e2" && "$e2" =~ ^[0-9]+$ ]]; then
+                watts=$(python3 -c "print(f'{($e2 - $e1) / 1_000_000:.2f}')" 2>/dev/null)
+                if [[ -n "$watts" && "$watts" =~ ^[0-9] ]]; then
+                    echo "[guard] power source=energy_counter path=$rapl watts=$watts" >&2
+                    echo "$watts"
+                    return
+                fi
+            fi
         fi
-        sleep 1
-        # Read energy after
-        e2=$(echo "$TAO_SUDO_PASS" | sudo -S cat "$rapl" 2>/dev/null)
-        if [[ -z "$e2" || ! "$e2" =~ ^[0-9]+$ ]]; then
-            echo "N/A"
-            return
-        fi
-        # Calculate watts (convert microjoules to watts over 1 second)
-        watts=$(python3 -c "print(f'{($e2 - $e1) / 1_000_000:.2f}')" 2>/dev/null)
-        if [[ -n "$watts" && "$watts" =~ ^[0-9] ]]; then
-            echo "$watts"
-            return
-        fi
+        echo "[guard] power energy counter read failed path=$rapl" >&2
     fi
 
-    # Fallback: turbostat (only works when C-states are enabled)
+    # Fallback: instantaneous power sensors in hwmon (usually microWatts)
+    power_uw=$(ls /sys/class/drm/card*/device/hwmon/hwmon*/power1_average 2>/dev/null | head -1)
+    [[ -z "$power_uw" ]] && power_uw=$(ls /sys/class/drm/card*/device/hwmon/hwmon*/power1_input 2>/dev/null | head -1)
+    [[ -z "$power_uw" ]] && power_uw=$(ls /sys/class/hwmon/hwmon*/power1_average 2>/dev/null | head -1)
+    [[ -z "$power_uw" ]] && power_uw=$(ls /sys/class/hwmon/hwmon*/power1_input 2>/dev/null | head -1)
+
+    if [[ -n "$power_uw" && -f "$power_uw" ]]; then
+        local pu watts
+        pu=$(echo "$TAO_SUDO_PASS" | sudo -S cat "$power_uw" 2>/dev/null)
+        if [[ -n "$pu" && "$pu" =~ ^[0-9]+$ ]]; then
+            watts=$(python3 -c "v=$pu; print(f'{(v/1_000_000) if v>10000 else v:.2f}')" 2>/dev/null)
+            if [[ -n "$watts" && "$watts" =~ ^[0-9] ]]; then
+                echo "[guard] power source=hwmon_power path=$power_uw raw=$pu watts=$watts" >&2
+                echo "$watts"
+                return
+            fi
+        fi
+        echo "[guard] power hwmon read failed path=$power_uw" >&2
+    fi
+
+    # Fallback: turbostat (usually Intel-only)
     if command -v turbostat &>/dev/null; then
         local w
         w=$(echo "$TAO_SUDO_PASS" | sudo -S turbostat --quiet --num_iterations 1 \
             --show PkgWatt 2>/dev/null \
             | grep -E '^[0-9]*\.[0-9]+' | grep -v '^0\.00$' | tail -1 | awk '{print $1}')
         if [[ -n "$w" && "$w" =~ ^[0-9] ]]; then
+            echo "[guard] power source=turbostat watts=$w" >&2
             echo "$w"
             return
         fi
     fi
 
+    echo "[guard] power unsupported: no readable energy/power sensor" >&2
     echo "N/A"
 }
 
@@ -591,6 +609,11 @@ fi
 # v1.5 adds hardware_extended (cpu_microcode_version, cache sizes, GPU VRAM, RAM speed)
 # and stability_extended (dmesg errors, throttle events, temp throttle counts)
 # Build JSON via python3 — bash vars interpolated before python sees the heredoc
+POWER_NOTE=""
+if [[ "$PWR_IDLE" == "N/A" || "$PWR_TUNED_IDLE" == "N/A" || "$PWR_DELTA" == "N/A" || -z "$PWR_IDLE" || -z "$PWR_TUNED_IDLE" || -z "$PWR_DELTA" ]]; then
+    POWER_NOTE=" power_telemetry:unavailable"
+fi
+
 RUN_JSON=$(python3 - <<PYJSON
 import json, datetime
 
@@ -619,7 +642,7 @@ data = {
     "power_idle_baseline_w": n("$PWR_B"),
     "power_idle_tuned_w": n("$PWR_T"),
     "power_delta_w": n("$PWR_D"),
-    "notes": "hw:$HW_FINGERPRINT stability:$STAB thermal:${THERM}C kernel:$KERNEL",
+    "notes": "hw:$HW_FINGERPRINT stability:$STAB thermal:${THERM}C kernel:$KERNEL$POWER_NOTE",
     "cpu_microcode_version": "$CPU_MICROCODE" if "$CPU_MICROCODE" not in ("unknown","") else None,
     "cpu_l1_cache_kb": ni("$CPU_L1_CACHE_KB") if "$CPU_L1_CACHE_KB" != "null" else None,
     "cpu_l2_cache_kb": ni("$CPU_L2_CACHE_KB") if "$CPU_L2_CACHE_KB" != "null" else None,
