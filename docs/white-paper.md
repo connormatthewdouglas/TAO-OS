@@ -106,7 +106,7 @@ This schema is designed for AI consumption from day one — every field an optim
 
 ## 3. Technical Implementation
 
-### 3.1 Preset Stack (v0.7 — 25 tweaks)
+### 3.1 Preset Stack (v0.8-locked — 28 tweaks)
 
 **Network (6 tweaks)**
 | Tweak | Value | Mechanism |
@@ -212,7 +212,7 @@ The `tcp_rmem/wmem` fix applies to any Linux system on any networked compute wor
 
 ## 5. Current Status (March 2026)
 
-- **Rebrand complete:** TAO-OS → CursiveOS
+- **Rebrand to CursiveOS complete**
 - **Production benchmark wrapper live:** `cursiveos-full-test-v1.4.sh`
 - **CursiveRoot live:** schema ingesting hardware-bound submissions with stability/thermal metadata
 - **Validation completed on two rigs:**
