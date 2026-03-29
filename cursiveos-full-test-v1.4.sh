@@ -80,6 +80,29 @@ if ! command -v ollama &>/dev/null; then
 fi
 SKIP_INFERENCE=${SKIP_INFERENCE:-0}
 
+# Core runtime dependencies (single install prompt to avoid repeated sudo approvals)
+MISSING_DEPS=()
+for dep in jq bc iperf3; do
+    command -v "$dep" >/dev/null 2>&1 || MISSING_DEPS+=("$dep")
+done
+if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
+    echo ""
+    echo "Missing required packages: ${MISSING_DEPS[*]}"
+    read -rp "  Install missing packages now? [y/N]: " INSTALL_DEPS
+    if [[ "${INSTALL_DEPS,,}" == "y" ]]; then
+        echo "  Installing: ${MISSING_DEPS[*]}"
+        echo "$TAO_SUDO_PASS" | sudo -S DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1 || true
+        echo "$TAO_SUDO_PASS" | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y "${MISSING_DEPS[@]}" -qq 2>/dev/null || true
+    fi
+fi
+for dep in jq bc iperf3; do
+    if ! command -v "$dep" >/dev/null 2>&1; then
+        echo "ERROR: missing required dependency: $dep"
+        echo "Install manually: sudo apt-get install -y jq bc iperf3"
+        exit 1
+    fi
+done
+
 if ! ollama list 2>/dev/null | grep -q "$MODEL"; then
     echo "Pulling $MODEL..."
     ollama pull "$MODEL"
@@ -161,15 +184,6 @@ if [[ "$SKIP_INFERENCE" != "1" ]]; then
     fi
 fi
 export MODEL
-
-if ! command -v iperf3 &>/dev/null; then
-    echo "Installing iperf3..."
-    echo "$TAO_SUDO_PASS" | sudo -S DEBIAN_FRONTEND=noninteractive apt-get install -y iperf3 -qq 2>/dev/null || true
-    if ! command -v iperf3 &>/dev/null; then
-        echo "ERROR: iperf3 install failed. Run manually: sudo apt-get install -y iperf3"
-        exit 1
-    fi
-fi
 
 CPU_MODEL=$(lscpu | grep 'Model name:' | cut -d':' -f2 | xargs)
 GPU_MODEL=$(lspci 2>/dev/null | grep -i 'VGA\|3D\|Display' | cut -d: -f3 | xargs || echo 'N/A')
