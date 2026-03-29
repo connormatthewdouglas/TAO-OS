@@ -620,17 +620,45 @@ if [[ "$MACHINE_EXISTS" == "[]" ]]; then
 }
 JSON
 )
-    MACHINE_RESP=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+
+    _resp_file=$(mktemp)
+    MACHINE_RESP=$(curl -s -o "$_resp_file" -w "%{http_code}" -X POST \
         "${SUPABASE_HEADERS[@]}" \
         -H "Prefer: return=minimal" \
         "$SUPABASE_URL/rest/v1/machines" \
         -d "$MACHINE_JSON" 2>/dev/null || echo "000")
+    MACHINE_RESP_BODY=$(cat "$_resp_file" 2>/dev/null || true)
+    rm -f "$_resp_file"
+
+    # Fallback: older schemas may not have extended machine columns.
+    if [[ "$MACHINE_RESP" != "200" && "$MACHINE_RESP" != "201" ]]; then
+        MACHINE_JSON_MIN=$(cat <<JSON
+{
+  "machine_id": "$MACHINE_ID",
+  "cpu": "$CPU_MODEL",
+  "gpu": "$GPU_MODEL",
+  "os": "$OS_NAME",
+  "kernel": "$KERNEL"
+}
+JSON
+)
+        _resp_file=$(mktemp)
+        MACHINE_RESP=$(curl -s -o "$_resp_file" -w "%{http_code}" -X POST \
+            "${SUPABASE_HEADERS[@]}" \
+            -H "Prefer: return=minimal" \
+            "$SUPABASE_URL/rest/v1/machines" \
+            -d "$MACHINE_JSON_MIN" 2>/dev/null || echo "000")
+        MACHINE_RESP_BODY=$(cat "$_resp_file" 2>/dev/null || true)
+        rm -f "$_resp_file"
+    fi
 else
     MACHINE_RESP="200"  # already exists, skip insert
+    MACHINE_RESP_BODY=""
 fi
 
 if [[ "$MACHINE_RESP" != "200" && "$MACHINE_RESP" != "201" ]]; then
     echo "  [guard] machines upsert returned HTTP $MACHINE_RESP"
+    [[ -n "${MACHINE_RESP_BODY:-}" ]] && echo "  [guard] machines response: $MACHINE_RESP_BODY"
 fi
 
 # Insert run (columns matching current DB schema + v1.5 extended fields)
