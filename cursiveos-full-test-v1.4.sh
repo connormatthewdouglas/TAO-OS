@@ -25,7 +25,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Allow preset override via first arg (for isolated tweak testing)
-PRESET="${1:-$SCRIPT_DIR/cursiveos-presets-v0.8.sh}"
+PRESET="${1:-$SCRIPT_DIR/presets/cursiveos-presets-v0.8.sh}"
 # Auto-select best available model — same preference order as benchmark-inference-v0.1.sh
 MODEL=""
 for _m in llama3 mistral llama3.2 phi3 qwen2 tinyllama; do

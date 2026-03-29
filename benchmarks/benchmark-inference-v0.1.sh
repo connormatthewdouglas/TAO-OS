@@ -9,12 +9,12 @@
 # right metric for CPU-inference machines (measured separately).
 #
 # Usage: ./benchmark-inference-v0.1.sh [preset-script] [model]
-#   preset-script : default ../cursiveos-presets-v0.8.sh
+#   preset-script : default ../presets/cursiveos-presets-v0.8.sh
 #   model         : auto-selected if omitted (prefers larger models)
 
 set -euo pipefail
 
-PRESET_SCRIPT="${1:-../cursiveos-presets-v0.8.sh}"
+PRESET_SCRIPT="${1:-../presets/cursiveos-presets-v0.8.sh}"
 
 # ── VRAM detection ────────────────────────────────────────────────────────────
 # Returns GPU VRAM in whole GiB (0 if undetectable).

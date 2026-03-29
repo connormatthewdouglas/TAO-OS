@@ -46,7 +46,7 @@ Runs all benchmarks, applies presets, shows you exactly what you gain. All chang
 
 CursiveOS applies a set of temporary, safe OS tweaks tuned for Bittensor mining workloads. Every change reverts on reboot or with `--undo`.
 
-**25 tweaks in `cursiveos-presets-v0.7.sh`:**
+**25 tweaks in `presets/cursiveos-presets-v0.7.sh`:**
 
 | Tweak | Value | Why |
 |-------|-------|-----|
@@ -78,9 +78,9 @@ CursiveOS applies a set of temporary, safe OS tweaks tuned for Bittensor mining 
 
 Apply manually:
 ```bash
-./cursiveos-presets-v0.7.sh --dry-run      # preview all changes first
-./cursiveos-presets-v0.7.sh --apply-temp   # apply
-./cursiveos-presets-v0.7.sh --undo         # revert
+./presets/cursiveos-presets-v0.7.sh --dry-run      # preview all changes first
+./presets/cursiveos-presets-v0.7.sh --apply-temp   # apply
+./presets/cursiveos-presets-v0.7.sh --undo         # revert
 ```
 
 ---
@@ -104,9 +104,9 @@ Installs Intel compute-runtime (OpenCL 3.0), Level Zero, and configures Ollama's
 Each benchmark is also runnable standalone:
 
 ```bash
-./benchmarks/benchmark-network-v0.1.sh ./cursiveos-presets-v0.7.sh        # TCP throughput, WAN sim
-./benchmarks/benchmark-inference-v0.2.sh ./cursiveos-presets-v0.7.sh tinyllama  # cold-start latency
-./benchmarks/benchmark-inference-v0.1.sh ./cursiveos-presets-v0.7.sh tinyllama  # sustained tok/s
+./benchmarks/benchmark-network-v0.1.sh ./presets/cursiveos-presets-v0.7.sh        # TCP throughput, WAN sim
+./benchmarks/benchmark-inference-v0.2.sh ./presets/cursiveos-presets-v0.7.sh tinyllama  # cold-start latency
+./benchmarks/benchmark-inference-v0.1.sh ./presets/cursiveos-presets-v0.7.sh tinyllama  # sustained tok/s
 ```
 
 ---
