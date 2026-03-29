@@ -46,7 +46,7 @@ Runs all benchmarks, applies presets, shows you exactly what you gain. All chang
 
 ## What it does
 
-CursiveOS applies a set of temporary, safe OS tweaks tuned for Bittensor mining workloads. Every change reverts on reboot or with `--undo`.
+CursiveOS applies a set of temporary, safe OS tweaks tuned for Bittensor mining workloads. The full-test script automatically reverts presets at the end of each run. Reboot or `--undo` are optional fallback paths.
 
 **25 tweaks in `presets/cursiveos-presets-v0.7.sh`:**
 

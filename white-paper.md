@@ -47,7 +47,7 @@ The result: every operator individually rediscovers the same optimizations (or d
 
 ### 2.1 Design principles
 
-- **Temporary by default.** Every change reverts on reboot or with `--undo`. No permanent modifications.
+- **Temporary by default.** Bench scripts automatically revert presets at run end; reboot or `--undo` are optional fallback paths. No permanent modifications.
 - **Benchmarked before shipping.** No tweak enters the preset stack without a paired before/after measurement across at least two hardware configurations.
 - **Hardware-aware.** The preset script detects available hardware features and skips inapplicable tweaks gracefully.
 - **Single command.** `./cursiveos-full-test-v1.4.sh` runs all benchmarks, applies presets, measures the delta, and submits hardware-verified results to CursiveRoot automatically.
