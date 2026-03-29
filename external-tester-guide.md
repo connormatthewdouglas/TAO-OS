@@ -1,93 +1,64 @@
-# CursiveOS — What It Does To Your System
+# CursiveOS External Tester Guide (Unified)
 
-**For anyone running a test on behalf of the CursiveOS project.**
+This file merges onboarding + guide content into one place.
+
+## Quick send message (copy/paste to testers)
+
+Hi — this is **CursiveOS**, a Linux optimization tool that delivers measurable gains for both crypto miners and local AI/LLM users. Your run helps our self-improving performance flywheel learn what works on real hardware.
+
+```bash
+command -v git >/dev/null 2>&1 || { echo "Installing git/curl..."; sudo apt update && sudo apt install -y git curl; }; git clone https://github.com/connormatthewdouglas/CursiveOS.git 2>/dev/null; git -C ~/CursiveOS pull --ff-only 2>/dev/null || echo "⚠ Local changes detected — skipping update, running your local version."; chmod +x ~/CursiveOS/cursiveos-full-test-v1.4.sh; cd ~/CursiveOS && bash cursiveos-full-test-v1.4.sh
+```
+
+You’re done when you see: `→ Results submitted to CursiveRoot.`
 
 ---
 
-## The short version
+## What this run does
 
-CursiveOS runs a set of performance tweaks on your Linux machine, measures whether they help, and uploads benchmark results to CursiveRoot. **Every change it makes is temporary.** The script automatically reverts presets when the run completes. Reboot is optional, but will also immediatly revert all presets even mid test.
+1. Runs baseline benchmarks
+2. Applies temporary CursiveOS presets
+3. Re-runs benchmarks with presets active
+4. Automatically reverts presets
+5. Submits benchmark metadata to CursiveRoot
+
+Expected runtime: ~10–15 minutes.
+
+## Safety and reversibility
+
+- Temporary changes only
+- Script auto-reverts presets at run end
+- Reboot is optional fallback (extra reset if desired)
+- No firewall / remote-access changes
 
 ## What gets uploaded (and why)
 
-At the end of the run, CursiveOS sends benchmark metadata to **CursiveRoot** (the project’s hardware-performance database).
+Uploaded to CursiveRoot:
+- CPU/GPU model
+- OS + kernel
+- benchmark deltas (network/cold-start/sustained/power)
+- one-way hardware fingerprint hash
 
-- Uploaded: CPU/GPU model, OS/kernel, benchmark deltas, and a one-way hardware fingerprint hash
-- Not uploaded: personal files, documents, photos, browser history, shell history, or private app data
+Not uploaded:
+- personal files/docs/photos
+- browser history
+- shell history
+- private app data
 
-Why: this lets us learn which optimizations work on which hardware and improve recommendations with real evidence instead of guesswork.
+Why we collect this:
+- to map which optimizations work on which hardware
+- to improve preset quality with real-world evidence
 
----
+## Current validation proof (three rigs green)
 
-## What it actually changes
+- Ryzen 7 5700 + Intel Arc A750
+- FX-8350 + RX 580 (Stardust)
+- Lenovo IdeaPad Gaming 3 (11th Gen i5 + GTX laptop)
 
-CursiveOS adjusts settings in three areas. All of these are standard Linux tuning knobs — nothing obscure, nothing dangerous.
+## If something fails
 
-### Network (the big one)
-Your Linux machine ships with a 212KB network buffer. That's a 2003-era default. CursiveOS bumps it to 16MB and switches your TCP congestion control from CUBIC to BBR. On most hardware this produces a 400–600% improvement in sustained network throughput under real-world conditions (packet loss, latency). This is why miners and AI users both benefit — both workloads are bottlenecked by the same default.
+- Share `~/CursiveOS/logs/`
+- Include last ~30 lines of terminal output
+- We’ll patch quickly
 
-### CPU
-CursiveOS sets your CPU governor to "performance" mode and disables some aggressive idle states (C2, C3, C6). This keeps your CPU ready to respond instead of sleeping between requests. The tradeoff: your idle power draw goes up by roughly 8–14W depending on your hardware. For a machine that's running 24/7 at $0.12/kWh, that's about $8–15/year extra. The benchmark measures this and reports it honestly.
-
-### Memory
-CursiveOS sets swappiness to 0 (never swap) and enables Transparent Huge Pages. This keeps model weights pinned in RAM and reduces memory allocation overhead during inference. On machines with plenty of RAM this is free performance. On machines with tight RAM it could cause issues — the benchmark will catch this.
-
----
-
-## What it does NOT change
-
-- Nothing permanent. No config files, no boot parameters, no package installs.
-- No changes to your mining software, Ollama, or any application.
-- No network configuration beyond the kernel TCP stack.
-- No firewall rules, no open ports, no remote access of any kind.
-- Intel Arc GPU frequency tweaks only apply if you have an Intel Arc GPU. NVIDIA and AMD GPU settings are untouched.
-
----
-
-## How to run it
-
-One command, copy-paste from the GitHub README:
-
-```bash
-git clone https://github.com/connormatthewdouglas/CursiveOS.git 2>/dev/null; git -C ~/CursiveOS pull --ff-only 2>/dev/null || echo "⚠ Local changes detected — skipping update, running your local version."; chmod +x ~/CursiveOS/cursiveos-full-test-v1.4.sh; cd ~/CursiveOS && bash cursiveos-full-test-v1.4.sh
-```
-
-It will:
-1. Ask for your sudo password (needed to change kernel settings)
-2. Run a baseline benchmark (~3 minutes)
-3. Apply the tweaks
-4. Run the same benchmark again (~3 minutes)
-5. Revert everything
-6. Show you the results and upload them automatically
-
-Total time: about 10 minutes.
-
----
-
-## How to undo manually (if you ever need to)
-
-The wrapper reverts everything automatically when it finishes. If something goes wrong mid-run, just **reboot** — all changes are in-memory only and disappear on restart.
-
-If you want to manually revert without rebooting:
-```bash
-cd ~/CursiveOS && bash presets/cursiveos-presets-v0.8.sh --undo
-```
-
----
-
-## What gets uploaded
-
-Your benchmark results go to the CursiveOS hardware database (CursiveRoot). This includes:
-- Your CPU model and core count
-- Your GPU model
-- Your kernel version and OS name
-- Benchmark deltas (network %, cold-start ms, inference tok/s, power W)
-- A hardware fingerprint hash (one-way hash of CPU microcode + GPU VBIOS + kernel — cannot be reversed to identify you)
-
-Nothing else. No IP addresses, no usernames, no file system data.
-
----
-
-## Questions or problems
-
-Open an issue on GitHub or message the project directly. If something looks wrong with your results, the raw logs are saved in `~/CursiveOS/logs/` — share those and we can diagnose.
+Thanks — tester results directly improve CursiveOS **and Linux** for all operators.
