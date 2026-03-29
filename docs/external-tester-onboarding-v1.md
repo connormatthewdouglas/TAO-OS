@@ -18,7 +18,8 @@ command -v git >/dev/null 2>&1 || { echo "Installing git/curl..."; sudo apt upda
 
 ## Safety + scope
 
-- Temporary changes only (reboot returns defaults)
+- Temporary changes only (**script automatically reverts presets**)
+- Reboot also returns defaults
 - No firewall/remote-access changes
 - Works for both audiences because bottlenecks are OS-level (network, scheduler/governor, memory behavior)
 
