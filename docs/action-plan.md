@@ -24,49 +24,45 @@ Self-fleet validation is in progress. v0.8 preset stack confirmed (wq-013/014/01
 
 ## Active Board Tasks — Priority Order
 
-### 1. ✅ Enforce hybrid config + $2/day spend cap on Copper
-- Heartbeat reduced to 60m ✅
-- Spend monitor live — cron every 30m, auto-pauses gateway on breach ✅
-- Dashboard spend card live ✅
-- Next: route 85%+ of Copper workload to local Ollama (see task 5)
+### 1. Define the Founding Operator program
+- Write the simple rules for who qualifies, what they do, what they get, and how future upside will be considered.
+- Keep the framing serious and non-hype: early operators, not disposable testers.
 
-### 2. ✅ Update action-plan.md as single source of truth
-- This document.
+### 2. Create the contributor ledger
+- Track who contributed hardware, runs, bugs found, and overall contribution value.
+- This is the bridge between goodwill now and stronger incentives later.
 
-### 3. Run full v1.4 validation on Stardust (FX-8350 + RX 580)
-- Run `tao-os-full-test-v1.4.sh` on Stardust
-- Confirm v1.4 schema fields all populate (especially power readings)
-- Submit results to CursiveRoot
-- Need ≥2 clean v0.8 runs on Stardust before it counts toward v1.5 gate
+### 3. Improve the first-run external experience
+- Tighten onboarding, rollback clarity, error reporting, and expectation-setting.
+- Goal: the first external run feels safe, legible, and worth repeating.
 
-### 4. Implement Copper Autonomy Score
-- Daily metric: % of actions Copper completed without Founder approval
-- Report in HEARTBEAT.md and dashboard
-- Baseline first — track approvals.json + work_queue.json pass/flag/reject ratio
-- Target: establish baseline before setting improvement goals
+### 4. Recruit 3–5 technically aligned founding operators
+- Prioritize local AI, mining, homelab, and builder communities.
+- Prefer mission-aligned operators over one-off paid testers.
 
-### 5. Route 85%+ of Copper workload to local Ollama
-- Ollama models available: qwen2.5-coder:14b, mistral, mistral-cpu, llama3.2:3b, tinyllama
-- OpenClaw doesn't natively expose Ollama in `models list` — routing approach TBD
-- Goal: heartbeats + queue worker tasks on local model; cloud only for planner tasks
-- This directly reduces cloud spend toward near-zero for routine work
+### 5. White-glove the first cohort
+- Treat the first external operators as collaborators.
+- Use their runs and feedback to harden the product and onboarding.
 
-### 6. ✅ Rebrand — CursiveOS
-- **COMPLETE — executed 2026-03-25**
-- CursiveOS is the confirmed name (recursive → cursive: the self-improving flywheel is literally recursive)
-- All internal references updated; GitHub repo rename to follow separately
-- CursiveRoot database name unchanged (board decision)
-- Script filenames preserved for benchmark history integrity
-- White paper bumped to v0.4.1
+### 6. Use paid testers only for narrow QA later
+- Fiverr-style testing is not the main validation engine.
+- Reserve paid testers for controlled onboarding/usability checks after the first-run flow is stable.
 
-### 7. Begin planning external testers + laptop/AIO validation (v1.5 gate prep)
-- v1.5 gate conditions: 5+ external machines, clean safety record, ≥1.5% avg gain confirmed externally
-- Identify 2-3 trusted testers for first external runs
-- Verify `--undo` works cleanly on every fleet machine before sending to anyone
-- Laptop + all-in-one: run v0.8 on remaining self-fleet hardware first
-- Write plain-English "what CursiveOS does to your system" explainer for external testers
-- **NVIDIA laptops:** run v0.8 as-is — wrapper detects NVIDIA, applies all GPU-agnostic tweaks (TCP, swappiness, scheduler), skips GPU-specific section gracefully, submits to CursiveRoot. Goal: NVIDIA hardware entries in database + proof that system-level gains apply regardless of GPU vendor. Do not attempt GPU clock/power tuning on laptop hardware.
-- **Pre-req:** add NVIDIA detection block to wrapper (~20 lines bash) so GPU-specific section skips cleanly instead of erroring. Do this before running laptops.
+### 7. Buy hardware only where it closes meaningful validation gaps
+- Spend hardware budget where it reduces uncertainty or covers an important user segment.
+- Prefer coverage/relevance over raw compute prestige.
+
+### 8. Prioritize reliability and repeatability over flashy features
+- Near-term product work should focus on safe rollback, debuggability, and predictable external success.
+- Add new features only when they support trust or leverage.
+
+### 9. Continue improving the preset stack only when gains are measured
+- Every new tweak should be benchmarked, meaningful, and worth the added complexity.
+- Avoid complexity creep that makes external testing harder.
+
+### 10. Build early community through measured proof
+- Share evidence, real deltas, and trust-building results where target users already gather.
+- The immediate goal is not broad hype; it is converting a few good operators into repeat contributors.
 
 ---
 
@@ -98,7 +94,7 @@ Self-fleet validation is in progress. v0.8 preset stack confirmed (wq-013/014/01
 
 These are approved tasks ready for Copper to execute — do not re-debate strategy, just implement:
 
-- **Whitepaper rewrite** (`docs/white-paper.md`) — update to reflect expanded audience (crypto miners + local AI/LLM users). Lead with data moat + DePIN vision. Position both audiences as identical beneficiaries of the same OS-level bottleneck fixes.
+- **Whitepaper rewrite** (`white-paper.md`) — update to reflect expanded audience (crypto miners + local AI/LLM users). Lead with data moat + DePIN vision. Position both audiences as identical beneficiaries of the same OS-level bottleneck fixes.
 - **README rewrite** (`README.md`) — expand from crypto mining focus to include local AI users (Ollama, llama.cpp, home inference clusters). Lead with the network win (+454–616%). Add local AI use case section after mining results. Keep technical, no hype.
 
 ---

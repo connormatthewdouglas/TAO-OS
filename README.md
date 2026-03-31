@@ -1,12 +1,18 @@
 # CursiveOS
 
-**AI-optimized Linux for Bittensor miners. One command. Measurable results.**
+**Measurement-first Linux optimization for local compute. One command. Measurable results.**
+
+CursiveOS is built for two equal core audiences:
+- crypto miners and decentralized compute operators
+- local AI/LLM users running Ollama, llama.cpp, and home inference nodes
+
+It works because the bottlenecks are the same at the OS layer: network transport ceilings, scheduler/governor latency, memory pressure, and GPU/CPU power-state behavior. CursiveOS benchmarks your machine, applies reversible presets, benchmarks again, and shows you the measured delta.
 
 ```bash
 git clone https://github.com/connormatthewdouglas/CursiveOS.git 2>/dev/null; git -C ~/CursiveOS pull --ff-only 2>/dev/null || echo "⚠ Local changes detected — skipping update, running your local version."; chmod +x ~/CursiveOS/cursiveos-full-test-v1.4.sh; cd ~/CursiveOS && bash cursiveos-full-test-v1.4.sh
 ```
 
-Runs all benchmarks, applies presets, shows you exactly what you gain. All changes revert automatically. Works whether you've cloned before or not.
+Runs all benchmarks, applies presets, shows you exactly what you gain, and reverts automatically at run end. Works whether you've cloned before or not.
 
 **Data transparency (important):** At the end of a run, CursiveOS uploads benchmark results to **CursiveRoot** (the project’s hardware-performance database). It uploads hardware/performance metadata (CPU/GPU model, OS/kernel, and benchmark deltas) — **not** personal files, documents, browser data, or shell history. We need this data to learn which optimizations work on which hardware and improve recommendations safely over time.
 

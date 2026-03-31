@@ -76,11 +76,16 @@ The benchmark tool provides immediate zero-day value (faster machines today). Th
 
 **Every component has standalone value.** The scripts work without the database. The database has value without the token. The token makes the database grow faster. Together they compound.
 
-### 2.3 CursiveRoot: The Living Root System (Data Moat)
+### 2.3 CursiveRoot: The Core Asset, Fed by a Living Ecosystem
 
-CursiveRoot is not a static table; it is the project's **living root system**. Each benchmark submission is a new root strand connecting hardware identity, applied configuration, measured deltas, and stability outcomes. As more strands interconnect, recommendation quality improves and the system becomes harder to replicate.
+CursiveRoot is not a static table; it is the project's **living root system**. Each benchmark submission is a new root strand connecting hardware identity, applied configuration, measured deltas, and stability outcomes. As more strands interconnect, recommendation quality improves and the project's core asset grows more useful.
 
-Competitors can copy scripts. They cannot instantly copy a living, continuously-updated evidence graph built from real operators running real hardware over time.
+That distinction matters: **CursiveRoot is the asset, not the full moat by itself.** Scripts can be copied. Benchmark methodology can be copied. Even a public snapshot of historical data can be copied. What is harder to copy is the live system that keeps producing newer evidence, validating new optimizations, and compounding faster than competitors can keep up.
+
+The deeper moat is the ecosystem around the asset:
+- **Speed of execution** — benchmark results become better presets and updated guidance quickly
+- **Contributor alignment** — operators have a reason to keep feeding the system rather than a fork
+- **Brand trust** — measured proof, methodological rigor, and visible momentum make CursiveOS the default place people believe
 
 CursiveRoot captures what no existing tool does in one structured chain:
 
