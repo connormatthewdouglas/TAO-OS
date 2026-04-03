@@ -12,7 +12,11 @@
       <h1>CursiveOS Hub</h1>
       <p class="subtitle">MVP · internal credits rail</p>
     </div>
-    <div class="cycle-card" id="cycleCard">Cycle: -- · Status: -- · Pool: --</div>
+    <div class="inline-form">
+      <select id="accountSelect"></select>
+      <div class="cycle-card" id="cycleCard">Cycle: -- · Status: -- · Pool: --</div>
+      <div class="cycle-card" id="identityCard">Identity: --</div>
+    </div>
   </header>
 
   <nav class="tabs" id="tabs">
@@ -28,6 +32,14 @@
       <h2>Install</h2>
       <p>One-command install/run:</p>
       <pre id="installCmd"></pre>
+      <h3>Connected Identity (Rail Mode)</h3>
+      <div class="inline-form">
+        <input id="walletAddressInput" placeholder="wallet address (claim)" />
+        <input id="walletChainInput" placeholder="chain id (default evm:1)" value="evm:1" />
+        <button id="bindWalletBtn">Bind Wallet (Unverified)</button>
+      </div>
+      <p id="bindWalletResult" class="muted"></p>
+
       <h3>Cycle Runner (Admin)</h3>
       <div class="inline-form">
         <input id="cycleIdInput" type="number" placeholder="cycle id (e.g. 11)" />

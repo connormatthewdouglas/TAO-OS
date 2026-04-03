@@ -3,16 +3,41 @@ const installCmd = `git clone https://github.com/connormatthewdouglas/CursiveOS.
 
 document.getElementById('installCmd').textContent = installCmd;
 
+let ACTIVE_ACCOUNT_ID = null;
+
+function withScope(path) {
+  if (!ACTIVE_ACCOUNT_ID) return path;
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}account_id=${encodeURIComponent(ACTIVE_ACCOUNT_ID)}`;
+}
+
+function setResult(id, text, ok = true) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.classList.remove('status-ok', 'status-err');
+  el.classList.add(ok ? 'status-ok' : 'status-err');
+}
+
+function apiMessage(result, fallback = 'request_failed') {
+  if (!result) return fallback;
+  if (result.error) return result.error;
+  if (result.message) return result.message;
+  return fallback;
+}
+
 async function jget(path) {
-  const res = await fetch(`${API}${path}`);
+  const res = await fetch(`${API}${withScope(path)}`);
   return res.json();
 }
 
 async function jpost(path, body) {
-  const res = await fetch(`${API}${path}`, {
+  const payload = { ...(body || {}) };
+  if (ACTIVE_ACCOUNT_ID && !payload.actor_account_id) payload.actor_account_id = ACTIVE_ACCOUNT_ID;
+  const res = await fetch(`${API}${withScope(path)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body || {})
+    headers: { 'Content-Type': 'application/json', ...(ACTIVE_ACCOUNT_ID ? { 'x-account-id': ACTIVE_ACCOUNT_ID } : {}) },
+    body: JSON.stringify(payload)
   });
   return res.json();
 }
@@ -21,20 +46,49 @@ function rows(id, data, render, colspan = 4) {
   document.getElementById(id).innerHTML = (data || []).map(render).join('') || `<tr><td colspan='${colspan}'>No data</td></tr>`;
 }
 
+function setScopedDefaults() {
+  const contribInput = document.getElementById('contribAccount');
+  const appealInput = document.getElementById('appealAccountId');
+  if (contribInput && !contribInput.value) contribInput.value = ACTIVE_ACCOUNT_ID || '';
+  if (appealInput && !appealInput.value) appealInput.value = ACTIVE_ACCOUNT_ID || '';
+}
+
+async function bootstrapAccount() {
+  const boot = await fetch(`${API}/hub/session/bootstrap`).then(r => r.json());
+  const sel = document.getElementById('accountSelect');
+  sel.innerHTML = (boot.accounts || []).map(a => `<option value="${a.account_id}">${a.role} · ${a.account_id.slice(0, 8)}...</option>`).join('');
+  ACTIVE_ACCOUNT_ID = boot.suggested_account_id || boot.accounts?.[0]?.account_id || null;
+  if (ACTIVE_ACCOUNT_ID) sel.value = ACTIVE_ACCOUNT_ID;
+  setScopedDefaults();
+  sel.addEventListener('change', async () => {
+    ACTIVE_ACCOUNT_ID = sel.value;
+    setScopedDefaults();
+    await load();
+  });
+}
+
 async function load() {
-  const [cycle, machines, ledger, contrib, appeals, balances] = await Promise.all([
+  const [cycle, machines, ledger, contrib, appeals, balances, identity] = await Promise.all([
     jget('/hub/cycle/latest'),
     jget('/hub/machines'),
     jget('/hub/rewards/ledger?limit=20'),
     jget('/hub/contributions'),
     jget('/hub/governance/appeals'),
-    jget('/hub/rewards/balances')
+    jget('/hub/rewards/balances'),
+    jget('/hub/identity')
   ]);
 
   const c = cycle.data;
   document.getElementById('cycleCard').textContent = c
     ? `Cycle: ${c.cycle_id} · Status: ${c.status} · Pool: ${c.pool_close ?? c.pool_open}`
     : 'Cycle: -- · Status: -- · Pool: --';
+
+  const wi = identity.wallet_identity;
+  const verifyClass = wi?.verification_status === 'verified' ? 'badge-verified' : 'badge-unverified';
+  const verifyLabel = wi?.verification_status || 'unverified';
+  document.getElementById('identityCard').innerHTML = identity.ok
+    ? `Identity: ${ACTIVE_ACCOUNT_ID?.slice(0, 8) || '--'}... · Rail: internal_credits · <span class="badge ${verifyClass}">${verifyLabel}</span>${wi?.wallet_address ? ` · Wallet: ${wi.wallet_address}` : ' · Wallet: not bound'}`
+    : `Identity: unavailable (${identity.error || 'unknown_error'})`;
 
   rows('machinesBody', machines.data, m => `<tr><td>${m.machine_id}</td><td>${m.plan}</td><td>${m.fast_cycle_fee}</td><td>${m.last_burn_cycle_id ?? '-'}</td></tr>`);
   rows('ledgerBody', ledger.data, e => `<tr><td>${e.event_type}</td><td>${e.bucket}</td><td>${e.amount}</td><td>${e.cycle_id}</td></tr>`);
@@ -53,48 +107,91 @@ async function load() {
 
 // Actions
 
+document.getElementById('bindWalletBtn').addEventListener('click', async () => {
+  try {
+    const wallet_address = document.getElementById('walletAddressInput').value.trim();
+    const chain_id = document.getElementById('walletChainInput').value.trim() || 'evm:1';
+    if (!wallet_address) {
+      setResult('bindWalletResult', 'Enter a wallet address first.', false);
+      return;
+    }
+    const result = await jpost('/hub/identity/wallet/bind', { account_id: ACTIVE_ACCOUNT_ID, wallet_address, chain_id });
+    if (result.ok) {
+      setResult('bindWalletResult', `Wallet bound in rail mode (${result.wallet_identity?.verification_status || 'unverified'}). Signature verification comes next.`, true);
+    } else {
+      setResult('bindWalletResult', `Bind failed: ${apiMessage(result)}`, false);
+    }
+    await load();
+  } catch (err) {
+    setResult('bindWalletResult', `Bind failed: ${err.message}`, false);
+  }
+});
+
 document.getElementById('runCycleBtn').addEventListener('click', async () => {
-  const cycle_id = Number(document.getElementById('cycleIdInput').value);
-  const pool_open = Number(document.getElementById('poolOpenInput').value || 1000);
-  const result = await jpost('/hub/cycle/run', { cycle_id, pool_open });
-  document.getElementById('runCycleResult').textContent = JSON.stringify(result.data || result, null, 0);
-  await load();
+  try {
+    const cycle_id = Number(document.getElementById('cycleIdInput').value);
+    const pool_open = Number(document.getElementById('poolOpenInput').value || 1000);
+    const result = await jpost('/hub/cycle/run', { cycle_id, pool_open });
+    if (result.ok) {
+      setResult('runCycleResult', 'Cycle run complete.', true);
+    } else {
+      setResult('runCycleResult', `Run failed: ${apiMessage(result)}`, false);
+    }
+    await load();
+  } catch (err) {
+    setResult('runCycleResult', `Run failed: ${err.message}`, false);
+  }
 });
 
 document.getElementById('setPlanBtn').addEventListener('click', async () => {
-  const machineId = document.getElementById('planMachineId').value.trim();
-  const plan = document.getElementById('planValue').value;
-  const result = await jpost(`/hub/machines/${encodeURIComponent(machineId)}/plan`, { plan });
-  document.getElementById('setPlanResult').textContent = result.ok ? 'Plan updated' : `Error: ${result.error}`;
-  await load();
+  try {
+    const machineId = document.getElementById('planMachineId').value.trim();
+    const plan = document.getElementById('planValue').value;
+    const result = await jpost(`/hub/machines/${encodeURIComponent(machineId)}/plan`, { plan });
+    setResult('setPlanResult', result.ok ? 'Plan updated.' : `Set plan failed: ${apiMessage(result)}`, result.ok);
+    await load();
+  } catch (err) {
+    setResult('setPlanResult', `Set plan failed: ${err.message}`, false);
+  }
 });
 
 document.getElementById('createContribBtn').addEventListener('click', async () => {
-  const payload = {
-    account_id: document.getElementById('contribAccount').value.trim(),
-    submission_hash: document.getElementById('contribHash').value.trim(),
-    title: document.getElementById('contribTitle').value.trim(),
-    class_name: document.getElementById('contribClass').value
-  };
-  const result = await jpost('/hub/contributions', payload);
-  document.getElementById('createContribResult').textContent = result.ok ? 'Submission created/updated' : `Error: ${result.error}`;
-  await load();
+  try {
+    const payload = {
+      account_id: document.getElementById('contribAccount').value.trim(),
+      submission_hash: document.getElementById('contribHash').value.trim(),
+      title: document.getElementById('contribTitle').value.trim(),
+      class_name: document.getElementById('contribClass').value
+    };
+    const result = await jpost('/hub/contributions', payload);
+    setResult('createContribResult', result.ok ? 'Submission created/updated.' : `Create failed: ${apiMessage(result)}`, result.ok);
+    await load();
+  } catch (err) {
+    setResult('createContribResult', `Create failed: ${err.message}`, false);
+  }
 });
 
 document.getElementById('openAppealBtn').addEventListener('click', async () => {
-  const payload = {
-    submission_id: document.getElementById('appealSubmissionId').value.trim(),
-    opened_by_account_id: document.getElementById('appealAccountId').value.trim(),
-    reason: document.getElementById('appealReason').value.trim()
-  };
-  const result = await jpost('/hub/governance/appeals', payload);
-  document.getElementById('openAppealResult').textContent = result.ok ? JSON.stringify(result.data || {}) : `Error: ${result.error}`;
-  await load();
+  try {
+    const payload = {
+      submission_id: document.getElementById('appealSubmissionId').value.trim(),
+      opened_by_account_id: document.getElementById('appealAccountId').value.trim(),
+      reason: document.getElementById('appealReason').value.trim()
+    };
+    const result = await jpost('/hub/governance/appeals', payload);
+    setResult('openAppealResult', result.ok ? 'Appeal opened.' : `Open appeal failed: ${apiMessage(result)}`, result.ok);
+    await load();
+  } catch (err) {
+    setResult('openAppealResult', `Open appeal failed: ${err.message}`, false);
+  }
 });
 
-load().catch(err => {
-  document.getElementById('cycleCard').textContent = `API error: ${err.message}`;
-});
+bootstrapAccount()
+  .then(load)
+  .catch(err => {
+    document.getElementById('cycleCard').textContent = `API error: ${err.message}`;
+    setResult('bindWalletResult', `API error: ${err.message}`, false);
+  });
 
 document.querySelectorAll('#tabs button').forEach(btn => {
   btn.addEventListener('click', () => {

@@ -21,6 +21,46 @@ function scopeAccount(req) {
   return (req.query.account_id || req.headers['x-account-id'] || '').toString().trim() || null;
 }
 
+async function getAccountRole(accountId) {
+  if (!accountId) return null;
+  const rows = await sql(`select role from l5_accounts where account_id='${esc(accountId)}' limit 1;`);
+  return rows[0]?.role || null;
+}
+
+function canAdmin(role) {
+  return role === 'mixed';
+}
+
+function canVote(role) {
+  return role === 'validator' || role === 'mixed';
+}
+
+function isLikelyWalletAddress(value) {
+  const v = String(value || '').trim();
+  if (!v) return false;
+  // MVP rail-mode: keep this broad enough for non-EVM future support,
+  // but still reject obvious junk.
+  return v.length >= 6 && v.length <= 128 && /^[a-zA-Z0-9:_-]+$/.test(v);
+}
+
+async function ensureWalletTable() {
+  await sql(`create table if not exists l5_wallet_identities (
+    account_id uuid primary key references l5_accounts(account_id) on delete cascade,
+    wallet_address text not null,
+    chain_id text not null default 'evm:1',
+    verification_status text not null default 'unverified',
+    verification_method text,
+    verification_nonce text,
+    signature text,
+    bound_at timestamptz not null default now(),
+    verified_at timestamptz,
+    updated_at timestamptz not null default now()
+  );`);
+
+  await sql(`create unique index if not exists l5_wallet_identities_address_unique
+    on l5_wallet_identities ((lower(wallet_address)));`);
+}
+
 async function sql(query) {
   const res = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
     method: 'POST',
@@ -56,6 +96,10 @@ app.get('/hub/cycle/latest', async (_req, res) => {
 
 app.post('/hub/cycle/run', async (req, res) => {
   try {
+    const actorId = scopeAccount(req) || req.body?.actor_account_id;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+
     const cycleId = Number(req.body?.cycle_id);
     const poolOpen = Number(req.body?.pool_open ?? 1000);
     if (!Number.isFinite(cycleId)) return res.status(400).json({ ok: false, error: 'invalid_cycle_id' });
@@ -81,9 +125,19 @@ app.get('/hub/machines', async (req, res) => {
 
 app.post('/hub/machines/:machineId/plan', async (req, res) => {
   try {
+    const actorId = scopeAccount(req) || req.body?.actor_account_id;
+    const actorRole = await getAccountRole(actorId);
     const { machineId } = req.params;
     const { plan } = req.body;
     if (!['stable', 'fast'].includes(plan)) return res.status(400).json({ ok: false, error: 'invalid_plan' });
+
+    const owner = await sql(`select account_id from l5_machine_entitlements where machine_id='${esc(machineId)}' limit 1;`);
+    const ownerId = owner[0]?.account_id;
+    if (!ownerId) return res.status(404).json({ ok: false, error: 'machine_not_found' });
+
+    if (!(canAdmin(actorRole) || actorId === ownerId)) {
+      return res.status(403).json({ ok: false, error: 'forbidden_not_owner' });
+    }
 
     await sql(`update l5_machine_entitlements set plan='${esc(plan)}', plan_updated_at=now() where machine_id='${esc(machineId)}';`);
     res.json({ ok: true });
@@ -175,8 +229,10 @@ app.get('/hub/governance/appeals', async (req, res) => {
 
 app.post('/hub/governance/appeals', async (req, res) => {
   try {
+    const actorId = scopeAccount(req) || req.body?.opened_by_account_id;
     const { submission_id, opened_by_account_id, reason, evidence_uri = null, fee_amount = 0.10 } = req.body || {};
     if (!submission_id || !opened_by_account_id || !reason) return res.status(400).json({ ok: false, error: 'missing_fields' });
+    if (actorId !== opened_by_account_id) return res.status(403).json({ ok: false, error: 'forbidden_actor_mismatch' });
 
     const data = await sql(`select l5_open_appeal('${esc(submission_id)}', '${esc(opened_by_account_id)}', '${esc(reason)}', ${evidence_uri ? `'${esc(evidence_uri)}'` : 'null'}, ${Number(fee_amount)}) as result;`);
     res.json({ ok: true, data: data[0]?.result || null });
@@ -199,10 +255,14 @@ app.get('/hub/governance/votes', async (req, res) => {
 
 app.post('/hub/governance/votes', async (req, res) => {
   try {
+    const actorId = scopeAccount(req) || req.body?.voter_account_id;
+    const actorRole = await getAccountRole(actorId);
     const { appeal_id, voter_account_id, vote, weight = 1 } = req.body || {};
     if (!appeal_id || !voter_account_id || !['yes', 'no', 'abstain'].includes(vote)) {
       return res.status(400).json({ ok: false, error: 'missing_or_invalid_fields' });
     }
+    if (actorId !== voter_account_id) return res.status(403).json({ ok: false, error: 'forbidden_actor_mismatch' });
+    if (!canVote(actorRole)) return res.status(403).json({ ok: false, error: 'forbidden_vote_role' });
 
     await sql(`insert into l5_governance_votes (appeal_id, voter_account_id, vote, weight)
       values ('${esc(appeal_id)}', '${esc(voter_account_id)}', '${esc(vote)}', ${Number(weight)})
@@ -214,11 +274,94 @@ app.post('/hub/governance/votes', async (req, res) => {
   }
 });
 
+app.get('/hub/identity', async (req, res) => {
+  try {
+    const accountId = scopeAccount(req);
+    if (!accountId) return res.status(400).json({ ok: false, error: 'missing_account_scope' });
+
+    await ensureWalletTable();
+
+    const [accountRows, walletRows] = await Promise.all([
+      sql(`select account_id, role, status from l5_accounts where account_id='${esc(accountId)}' limit 1;`),
+      sql(`select account_id, wallet_address, chain_id, verification_status, verification_method, bound_at, verified_at, updated_at
+           from l5_wallet_identities where account_id='${esc(accountId)}' limit 1;`)
+    ]);
+
+    if (!accountRows[0]) return res.status(404).json({ ok: false, error: 'account_not_found' });
+    res.json({
+      ok: true,
+      account: accountRows[0],
+      wallet_identity: walletRows[0] || null,
+      rail_mode: 'internal_credits'
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post('/hub/identity/wallet/bind', async (req, res) => {
+  try {
+    const actorId = scopeAccount(req) || req.body?.actor_account_id;
+    const { account_id, wallet_address, chain_id = 'evm:1' } = req.body || {};
+
+    if (!actorId || !account_id || !wallet_address) {
+      return res.status(400).json({ ok: false, error: 'missing_fields' });
+    }
+    if (actorId !== account_id) {
+      return res.status(403).json({ ok: false, error: 'forbidden_actor_mismatch' });
+    }
+    if (!isLikelyWalletAddress(wallet_address)) {
+      return res.status(400).json({ ok: false, error: 'invalid_wallet_address' });
+    }
+
+    await ensureWalletTable();
+
+    const accountRows = await sql(`select account_id from l5_accounts where account_id='${esc(account_id)}' limit 1;`);
+    if (!accountRows[0]) return res.status(404).json({ ok: false, error: 'account_not_found' });
+
+    const clashes = await sql(`select account_id from l5_wallet_identities
+      where lower(wallet_address)=lower('${esc(wallet_address)}') and account_id <> '${esc(account_id)}' limit 1;`);
+    if (clashes[0]) return res.status(409).json({ ok: false, error: 'wallet_already_bound_elsewhere' });
+
+    await sql(`insert into l5_wallet_identities
+      (account_id, wallet_address, chain_id, verification_status, verification_method, signature, verified_at, updated_at)
+      values
+      ('${esc(account_id)}', '${esc(wallet_address)}', '${esc(chain_id)}', 'unverified', 'pending_signature', null, null, now())
+      on conflict (account_id) do update
+      set wallet_address='${esc(wallet_address)}',
+          chain_id='${esc(chain_id)}',
+          verification_status='unverified',
+          verification_method='pending_signature',
+          signature=null,
+          verified_at=null,
+          updated_at=now();`);
+
+    const walletRows = await sql(`select account_id, wallet_address, chain_id, verification_status, verification_method, bound_at, verified_at, updated_at
+      from l5_wallet_identities where account_id='${esc(account_id)}' limit 1;`);
+
+    res.json({
+      ok: true,
+      message: 'wallet_bound_unverified',
+      wallet_identity: walletRows[0] || null,
+      next_step: 'signature_verification_pending_implementation'
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
 app.get('/hub/session/bootstrap', async (_req, res) => {
   try {
     const accounts = await sql(`select account_id, role, status, created_at from l5_accounts order by created_at asc limit 20;`);
-    const suggested = accounts.find(a => ['mixed','contributor','validator','consumer'].includes(a.role)) || accounts[0] || null;
-    res.json({ ok: true, suggested_account_id: suggested?.account_id || null, accounts });
+    const suggestedAdmin = accounts.find(a => a.role === 'mixed') || null;
+    const suggestedOperator = accounts.find(a => ['contributor','validator','consumer'].includes(a.role)) || accounts[0] || null;
+    res.json({
+      ok: true,
+      suggested_account_id: (suggestedAdmin || suggestedOperator)?.account_id || null,
+      suggested_admin_account_id: suggestedAdmin?.account_id || null,
+      suggested_operator_account_id: suggestedOperator?.account_id || null,
+      accounts
+    });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }
