@@ -268,8 +268,8 @@ Deploy contribution rewards only after data quality and anti-gaming controls hav
 Current implementation status (MVP-6 pilot rail):
 - Reward rail is currently `internal_credits` (non-transferable internal accounting).
 - Account-scoped permissions are active in Hub API (admin/owner/voter checks).
-- Wallet binding is live as a claimed identity with explicit `unverified` status.
-- Signature-based wallet verification is intentionally queued as post-pilot hardening before any external-value token rail is enabled.
+- Wallet binding is live with EIP-191 challenge/response verification.
+- Session-token auth + signature verification now provide a cryptographic ownership check before any external-value token rail is enabled.
 
 ### Phase E — AI Optimization Loop
 Train recommendation models on CursiveRoot evidence to generate hardware-specific presets and expected outcome bands.

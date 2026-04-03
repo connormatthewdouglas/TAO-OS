@@ -11,9 +11,9 @@ Status: In progress
 - Evidence: Install tab + one-command script shown in Hub.
 
 2) Account/wallet identity connection exists
-- Status: PASS (MVP rail-mode)
-- Current: account scoping via account_id/session bootstrap + wallet bind endpoint/UI.
-- Notes: wallet stays explicitly unverified until signature flow is added.
+- Status: PASS (verified path live)
+- Current: session-token identity scoping + wallet bind + challenge/signature verify endpoints/UI.
+- Notes: EIP-191 message signing flow marks wallet as verified after signature validation.
 
 3) User can see machine, plan, cycle, rewards
 - Status: PASS
@@ -30,7 +30,7 @@ Status: In progress
 6) Permission safety
 - Status: PASS (strict token-mode)
 - Current: admin-only cycle run, owner/admin plan guard, actor-match checks, session token -> account mapping, strict token-required access for `/hub/*` (except session bootstrap/create), per-route rate limit, audit action trail endpoint.
-- Missing (post-pilot hardening): signature verification for wallet ownership and richer anomaly controls.
+- Missing (post-pilot hardening): richer anomaly controls (IP/account anomaly alerts, bans/slow mode).
 
 7) No-SQL operator journey validated
 - Status: PASS
@@ -54,7 +54,7 @@ Status: In progress
 
 ## Next execution order
 1) Run supervised pilot cohort and monitor action trail/rate-limit behavior.
-2) Implement signature-based wallet verification.
-3) Add richer abuse controls (IP/account anomaly alerts, ban/slow mode).
-4) Reassess GO/NO-GO for broader public rollout.
-5) Prepare migration to stronger auth provider once pilot behavior data is stable.
+2) Add richer abuse controls (IP/account anomaly alerts, ban/slow mode).
+3) Reassess GO/NO-GO for broader public rollout.
+4) Prepare migration to stronger auth provider once pilot behavior data is stable.
+5) Define token-rail activation policy gates tied to abuse metrics.

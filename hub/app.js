@@ -5,6 +5,7 @@ document.getElementById('installCmd').textContent = installCmd;
 
 let ACTIVE_ACCOUNT_ID = null;
 let ACTIVE_SESSION_TOKEN = null;
+let ACTIVE_WALLET_CHALLENGE = null;
 
 function withScope(path) {
   return path;
@@ -114,6 +115,10 @@ async function load() {
   document.getElementById('identityCard').innerHTML = identity.ok
     ? `Identity: ${ACTIVE_ACCOUNT_ID?.slice(0, 8) || '--'}... · Rail: internal_credits · <span class="badge ${verifyClass}">${verifyLabel}</span>${wi?.wallet_address ? ` · Wallet: ${wi.wallet_address}` : ' · Wallet: not bound'}`
     : `Identity: unavailable (${identity.error || 'unknown_error'})`;
+  if (wi?.verification_status === 'verified') {
+    ACTIVE_WALLET_CHALLENGE = null;
+    document.getElementById('walletChallengeMessage').textContent = 'Wallet verified. No pending challenge.';
+  }
 
   const auditItems = (audit?.data || []).map(a => `${a.action}@${a.created_at?.slice(11, 19) || '--:--:--'}`);
   document.getElementById('actionTrailSummary').textContent = audit?.ok
@@ -154,6 +159,47 @@ document.getElementById('bindWalletBtn').addEventListener('click', async () => {
     await load();
   } catch (err) {
     setResult('bindWalletResult', `Bind failed: ${err.message}`, false);
+  }
+});
+
+document.getElementById('walletChallengeBtn').addEventListener('click', async () => {
+  try {
+    const result = await jpost('/hub/identity/wallet/challenge', { account_id: ACTIVE_ACCOUNT_ID });
+    if (result.ok) {
+      ACTIVE_WALLET_CHALLENGE = result;
+      document.getElementById('walletChallengeMessage').textContent = result.message;
+      setResult('walletVerifyResult', 'Challenge generated. Sign this exact message with your bound wallet.', true);
+    } else {
+      setResult('walletVerifyResult', `Challenge failed: ${apiMessage(result)}`, false);
+    }
+  } catch (err) {
+    setResult('walletVerifyResult', `Challenge failed: ${err.message}`, false);
+  }
+});
+
+document.getElementById('walletVerifyBtn').addEventListener('click', async () => {
+  try {
+    const signature = document.getElementById('walletSignatureInput').value.trim();
+    if (!signature) {
+      setResult('walletVerifyResult', 'Paste wallet signature first.', false);
+      return;
+    }
+    if (!ACTIVE_WALLET_CHALLENGE?.nonce) {
+      setResult('walletVerifyResult', 'Generate a challenge first.', false);
+      return;
+    }
+
+    const result = await jpost('/hub/identity/wallet/verify', { account_id: ACTIVE_ACCOUNT_ID, signature });
+    if (result.ok) {
+      setResult('walletVerifyResult', 'Wallet signature verified.', true);
+      document.getElementById('walletSignatureInput').value = '';
+      ACTIVE_WALLET_CHALLENGE = null;
+    } else {
+      setResult('walletVerifyResult', `Verify failed: ${apiMessage(result)}`, false);
+    }
+    await load();
+  } catch (err) {
+    setResult('walletVerifyResult', `Verify failed: ${err.message}`, false);
   }
 });
 

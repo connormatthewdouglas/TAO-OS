@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
 import crypto from 'crypto';
+import { verifyMessage } from 'ethers';
 
 dotenv.config();
 
@@ -158,6 +159,21 @@ function isLikelyWalletAddress(value) {
   // MVP rail-mode: keep this broad enough for non-EVM future support,
   // but still reject obvious junk.
   return v.length >= 6 && v.length <= 128 && /^[a-zA-Z0-9:_-]+$/.test(v);
+}
+
+function buildWalletVerificationMessage({ accountId, walletAddress, nonce }) {
+  return [
+    'CursiveOS Wallet Verification',
+    `Account: ${accountId}`,
+    `Wallet: ${walletAddress}`,
+    `Nonce: ${nonce}`
+  ].join('\n');
+}
+
+async function getWalletIdentity(accountId) {
+  const rows = await sql(`select account_id, wallet_address, chain_id, verification_status, verification_method, verification_nonce, signature, bound_at, verified_at, updated_at
+    from l5_wallet_identities where account_id='${esc(accountId)}' limit 1;`);
+  return rows[0] || null;
 }
 
 async function ensureWalletTable() {
@@ -458,8 +474,75 @@ app.post('/hub/identity/wallet/bind', async (req, res) => {
       ok: true,
       message: 'wallet_bound_unverified',
       wallet_identity: walletRows[0] || null,
-      next_step: 'signature_verification_pending_implementation'
+      next_step: 'request_wallet_challenge_then_submit_signature'
     });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post('/hub/identity/wallet/challenge', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const { account_id } = req.body || {};
+    if (!account_id) return res.status(400).json({ ok: false, error: 'missing_account_id' });
+    if (account_id !== actorId) return res.status(403).json({ ok: false, error: 'forbidden_actor_mismatch' });
+
+    await ensureWalletTable();
+    const wallet = await getWalletIdentity(account_id);
+    if (!wallet) return res.status(404).json({ ok: false, error: 'wallet_not_bound' });
+
+    const nonce = crypto.randomBytes(16).toString('hex');
+    await sql(`update l5_wallet_identities
+      set verification_nonce='${esc(nonce)}', verification_method='eip191_message', updated_at=now()
+      where account_id='${esc(account_id)}';`);
+
+    const message = buildWalletVerificationMessage({ accountId: account_id, walletAddress: wallet.wallet_address, nonce });
+    await logAction({ action: 'wallet_challenge_issued', actorAccountId: actorId, req, details: { chain_id: wallet.chain_id } });
+    res.json({ ok: true, account_id, wallet_address: wallet.wallet_address, chain_id: wallet.chain_id, nonce, message, signing_method: 'personal_sign_eip191' });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post('/hub/identity/wallet/verify', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const { account_id, signature } = req.body || {};
+    if (!account_id || !signature) return res.status(400).json({ ok: false, error: 'missing_fields' });
+    if (account_id !== actorId) return res.status(403).json({ ok: false, error: 'forbidden_actor_mismatch' });
+
+    await ensureWalletTable();
+    const wallet = await getWalletIdentity(account_id);
+    if (!wallet) return res.status(404).json({ ok: false, error: 'wallet_not_bound' });
+    if (!wallet.verification_nonce) return res.status(400).json({ ok: false, error: 'missing_challenge_nonce' });
+
+    const message = buildWalletVerificationMessage({ accountId: account_id, walletAddress: wallet.wallet_address, nonce: wallet.verification_nonce });
+
+    let recoveredAddress = '';
+    try {
+      recoveredAddress = verifyMessage(message, signature);
+    } catch (_err) {
+      return res.status(400).json({ ok: false, error: 'invalid_signature_format' });
+    }
+
+    if (recoveredAddress.toLowerCase() !== String(wallet.wallet_address).toLowerCase()) {
+      await logAction({ action: 'wallet_verify_failed', actorAccountId: actorId, req, status: 'rejected', details: { reason: 'signature_mismatch' } });
+      return res.status(400).json({ ok: false, error: 'signature_mismatch' });
+    }
+
+    await sql(`update l5_wallet_identities
+      set verification_status='verified',
+          verification_method='eip191_message',
+          signature='${esc(signature)}',
+          verification_nonce=null,
+          verified_at=now(),
+          updated_at=now()
+      where account_id='${esc(account_id)}';`);
+
+    const walletUpdated = await getWalletIdentity(account_id);
+    await logAction({ action: 'wallet_verified', actorAccountId: actorId, req, details: { chain_id: wallet.chain_id } });
+    res.json({ ok: true, message: 'wallet_verified', wallet_identity: walletUpdated });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }
