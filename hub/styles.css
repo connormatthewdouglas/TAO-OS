@@ -22,3 +22,5 @@ th{color:#b9c9ea;font-weight:600}
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--line)}
 .badge-unverified{background:#38220f;color:#ffd08a;border-color:#7f4a1e}
 .badge-verified{background:#113624;color:#a8ffca;border-color:#1d6d43}
+.badge-slow{background:#2a2238;color:#d8b7ff;border-color:#6b46a4}
+.badge-blocked{background:#3a1418;color:#ffb3bd;border-color:#9b2c2c}

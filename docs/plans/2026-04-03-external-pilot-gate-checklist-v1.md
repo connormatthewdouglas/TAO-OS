@@ -48,13 +48,15 @@ Status: In progress
   - consumer cycle run blocked with `forbidden_admin_only`.
   - missing token blocked with `unauthorized_session_required`.
   - token/account query mismatch blocked with `forbidden_account_scope_mismatch`.
-  - consumer wallet bind succeeds as `unverified` and is visible in identity.
+  - consumer wallet bind + EIP-191 signature verify flow succeeds to `verified`.
   - consumer audit log only shows own actions; admin sees global action trail.
+  - admin account controls work (`normal`/`slow`/`blocked`), and blocked users receive `account_blocked`.
+  - anomaly stream records auth/rate/control events for admin review.
 - Gate decision: GO for supervised external pilot (rail mode).
 
 ## Next execution order
 1) Run supervised pilot cohort and monitor action trail/rate-limit behavior.
-2) Add richer abuse controls (IP/account anomaly alerts, ban/slow mode).
+2) Add network-level abuse controls (IP reputation, geo/ASN anomaly signals, automated temporary lockouts).
 3) Reassess GO/NO-GO for broader public rollout.
 4) Prepare migration to stronger auth provider once pilot behavior data is stable.
 5) Define token-rail activation policy gates tied to abuse metrics.

@@ -12,12 +12,14 @@ app.use(cors());
 app.use(express.json());
 app.use('/hub', enforceRateLimit);
 app.use('/hub', requireHubSession);
+app.use('/hub', enforceAccountControl);
 
 const PORT = process.env.PORT || 8787;
 const REF = process.env.SUPABASE_PROJECT_REF;
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 const SESSION_TTL_HOURS = Number(process.env.HUB_SESSION_TTL_HOURS || 24);
 const HUB_RATE_LIMIT_PER_MINUTE = Number(process.env.HUB_RATE_LIMIT_PER_MINUTE || 180);
+const HUB_SLOW_MODE_DELAY_MS = Number(process.env.HUB_SLOW_MODE_DELAY_MS || 1500);
 
 const rateWindowMs = 60 * 1000;
 const rateBuckets = new Map();
@@ -51,6 +53,12 @@ function enforceRateLimit(req, res, next) {
   }
 
   if (bucket.count >= HUB_RATE_LIMIT_PER_MINUTE) {
+    const sessionToken = scopeSessionToken(req);
+    if (sessionToken) {
+      resolveAccountFromSession(req)
+        .then((acct) => recordAnomaly({ accountId: acct, signalType: 'rate_limited', severity: 'medium', req, details: { per_minute: HUB_RATE_LIMIT_PER_MINUTE } }))
+        .catch(() => {});
+    }
     return res.status(429).json({ ok: false, error: 'rate_limited' });
   }
 
@@ -87,6 +95,50 @@ async function ensureActionLogTable() {
   await sql(`create index if not exists l5_hub_action_log_actor_idx on l5_hub_action_log(actor_account_id, created_at desc);`);
 }
 
+async function ensureAccountControlTable() {
+  await sql(`create table if not exists l5_account_controls (
+    account_id uuid primary key references l5_accounts(account_id) on delete cascade,
+    control_mode text not null default 'normal',
+    reason text,
+    updated_by_account_id uuid,
+    updated_at timestamptz not null default now()
+  );`);
+}
+
+async function ensureAnomalyTable() {
+  await sql(`create table if not exists l5_hub_anomaly_events (
+    anomaly_id bigserial primary key,
+    account_id uuid,
+    signal_type text not null,
+    severity text not null default 'medium',
+    route text,
+    details jsonb,
+    created_at timestamptz not null default now(),
+    resolved_at timestamptz
+  );`);
+
+  await sql(`create index if not exists l5_hub_anomaly_account_idx on l5_hub_anomaly_events(account_id, created_at desc);`);
+}
+
+async function getAccountControl(accountId) {
+  if (!accountId) return null;
+  await ensureAccountControlTable();
+  const rows = await sql(`select account_id, control_mode, reason, updated_by_account_id, updated_at
+    from l5_account_controls where account_id='${esc(accountId)}' limit 1;`);
+  return rows[0] || null;
+}
+
+async function recordAnomaly({ accountId = null, signalType, severity = 'medium', req = null, details = {} }) {
+  try {
+    await ensureAnomalyTable();
+    const detailsJson = esc(JSON.stringify(details || {}));
+    await sql(`insert into l5_hub_anomaly_events (account_id, signal_type, severity, route, details)
+      values (${accountId ? `'${esc(accountId)}'` : 'null'}, '${esc(signalType)}', '${esc(severity)}', ${req ? `'${esc(req.path)}'` : 'null'}, '${detailsJson}'::jsonb);`);
+  } catch (_e) {
+    // anomaly logging is best-effort
+  }
+}
+
 async function resolveAccountFromSession(req) {
   const sessionToken = scopeSessionToken(req);
   if (!sessionToken) return null;
@@ -113,15 +165,45 @@ async function requireHubSession(req, res, next) {
 
     const accountFromSession = await resolveAccountFromSession(req);
     if (!accountFromSession) {
+      await recordAnomaly({ signalType: 'auth_missing_session', severity: 'high', req });
       return res.status(401).json({ ok: false, error: 'unauthorized_session_required' });
     }
 
     const scoped = scopeAccount(req);
     if (scoped && scoped !== accountFromSession) {
+      await recordAnomaly({ accountId: accountFromSession, signalType: 'auth_scope_mismatch', severity: 'high', req, details: { scoped_account_id: scoped } });
       return res.status(403).json({ ok: false, error: 'forbidden_account_scope_mismatch' });
     }
 
     req.authAccountId = accountFromSession;
+    return next();
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+}
+
+async function enforceAccountControl(req, res, next) {
+  try {
+    if (isSessionOptionalPath(req.path)) return next();
+
+    const actorId = req.authAccountId;
+    const control = await getAccountControl(actorId);
+
+    if (!control || control.control_mode === 'normal') {
+      return next();
+    }
+
+    if (control.control_mode === 'slow') {
+      await new Promise(r => setTimeout(r, HUB_SLOW_MODE_DELAY_MS));
+      req.accountControl = control;
+      return next();
+    }
+
+    if (control.control_mode === 'blocked') {
+      await recordAnomaly({ accountId: actorId, signalType: 'blocked_account_attempt', severity: 'high', req });
+      return res.status(423).json({ ok: false, error: 'account_blocked', reason: control.reason || null });
+    }
+
     return next();
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e.message || e) });
@@ -411,10 +493,11 @@ app.get('/hub/identity', async (req, res) => {
 
     await ensureWalletTable();
 
-    const [accountRows, walletRows] = await Promise.all([
+    const [accountRows, walletRows, accountControl] = await Promise.all([
       sql(`select account_id, role, status from l5_accounts where account_id='${esc(accountId)}' limit 1;`),
       sql(`select account_id, wallet_address, chain_id, verification_status, verification_method, bound_at, verified_at, updated_at
-           from l5_wallet_identities where account_id='${esc(accountId)}' limit 1;`)
+           from l5_wallet_identities where account_id='${esc(accountId)}' limit 1;`),
+      getAccountControl(accountId)
     ]);
 
     if (!accountRows[0]) return res.status(404).json({ ok: false, error: 'account_not_found' });
@@ -422,6 +505,7 @@ app.get('/hub/identity', async (req, res) => {
       ok: true,
       account: accountRows[0],
       wallet_identity: walletRows[0] || null,
+      account_control: accountControl || { control_mode: 'normal', reason: null },
       rail_mode: 'internal_credits'
     });
   } catch (e) {
@@ -588,6 +672,75 @@ app.get('/hub/audit/actions', async (req, res) => {
       limit ${limit};`);
 
     res.json({ ok: true, data, actor_account_id: actorId, actor_role: role || null });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.get('/hub/admin/account-controls', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+
+    await ensureAccountControlTable();
+    const limit = Math.min(Number(req.query.limit || 200), 500);
+    const rows = await sql(`select account_id, control_mode, reason, updated_by_account_id, updated_at
+      from l5_account_controls
+      order by updated_at desc
+      limit ${limit};`);
+
+    res.json({ ok: true, data: rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post('/hub/admin/account-controls/set', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+
+    const { account_id, control_mode = 'normal', reason = null } = req.body || {};
+    if (!account_id || !['normal', 'slow', 'blocked'].includes(control_mode)) {
+      return res.status(400).json({ ok: false, error: 'missing_or_invalid_fields' });
+    }
+
+    await ensureAccountControlTable();
+    await sql(`insert into l5_account_controls (account_id, control_mode, reason, updated_by_account_id, updated_at)
+      values ('${esc(account_id)}', '${esc(control_mode)}', ${reason ? `'${esc(reason)}'` : 'null'}, '${esc(actorId)}', now())
+      on conflict (account_id) do update
+      set control_mode='${esc(control_mode)}',
+          reason=${reason ? `'${esc(reason)}'` : 'null'},
+          updated_by_account_id='${esc(actorId)}',
+          updated_at=now();`);
+
+    await logAction({ action: 'account_control_set', actorAccountId: actorId, req, details: { account_id, control_mode } });
+    if (control_mode !== 'normal') {
+      await recordAnomaly({ accountId: account_id, signalType: `account_control_${control_mode}`, severity: control_mode === 'blocked' ? 'high' : 'medium', req, details: { reason: reason || null } });
+    }
+
+    const updated = await getAccountControl(account_id);
+    res.json({ ok: true, data: updated });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.get('/hub/admin/anomalies', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+
+    await ensureAnomalyTable();
+    const limit = Math.min(Number(req.query.limit || 200), 500);
+    const data = await sql(`select anomaly_id, account_id, signal_type, severity, route, details, created_at, resolved_at
+      from l5_hub_anomaly_events
+      order by created_at desc
+      limit ${limit};`);
+    res.json({ ok: true, data });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }

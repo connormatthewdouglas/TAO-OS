@@ -110,10 +110,16 @@ async function load() {
     : 'Cycle: -- · Status: -- · Pool: --';
 
   const wi = identity.wallet_identity;
+  const controlMode = identity?.account_control?.control_mode || 'normal';
   const verifyClass = wi?.verification_status === 'verified' ? 'badge-verified' : 'badge-unverified';
   const verifyLabel = wi?.verification_status || 'unverified';
+  const controlBadge = controlMode === 'blocked'
+    ? '<span class="badge badge-blocked">blocked</span>'
+    : controlMode === 'slow'
+      ? '<span class="badge badge-slow">slow-mode</span>'
+      : '<span class="badge">normal</span>';
   document.getElementById('identityCard').innerHTML = identity.ok
-    ? `Identity: ${ACTIVE_ACCOUNT_ID?.slice(0, 8) || '--'}... · Rail: internal_credits · <span class="badge ${verifyClass}">${verifyLabel}</span>${wi?.wallet_address ? ` · Wallet: ${wi.wallet_address}` : ' · Wallet: not bound'}`
+    ? `Identity: ${ACTIVE_ACCOUNT_ID?.slice(0, 8) || '--'}... · Rail: internal_credits · ${controlBadge} · <span class="badge ${verifyClass}">${verifyLabel}</span>${wi?.wallet_address ? ` · Wallet: ${wi.wallet_address}` : ' · Wallet: not bound'}`
     : `Identity: unavailable (${identity.error || 'unknown_error'})`;
   if (wi?.verification_status === 'verified') {
     ACTIVE_WALLET_CHALLENGE = null;
