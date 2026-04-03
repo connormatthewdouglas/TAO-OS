@@ -2,16 +2,23 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
+import crypto from 'crypto';
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/hub', enforceRateLimit);
 
 const PORT = process.env.PORT || 8787;
 const REF = process.env.SUPABASE_PROJECT_REF;
 const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
+const SESSION_TTL_HOURS = Number(process.env.HUB_SESSION_TTL_HOURS || 24);
+const HUB_RATE_LIMIT_PER_MINUTE = Number(process.env.HUB_RATE_LIMIT_PER_MINUTE || 180);
+
+const rateWindowMs = 60 * 1000;
+const rateBuckets = new Map();
 
 function esc(v) {
   return String(v ?? '').replace(/'/g, "''");
@@ -19,6 +26,96 @@ function esc(v) {
 
 function scopeAccount(req) {
   return (req.query.account_id || req.headers['x-account-id'] || '').toString().trim() || null;
+}
+
+function scopeSessionToken(req) {
+  return (req.headers['x-session-token'] || req.query.session_token || '').toString().trim() || null;
+}
+
+function rateLimitKey(req) {
+  const scopedToken = scopeSessionToken(req);
+  const scopedAccount = scopeAccount(req);
+  return `${req.method}:${req.path}:${scopedToken || scopedAccount || req.ip}`;
+}
+
+function enforceRateLimit(req, res, next) {
+  const key = rateLimitKey(req);
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+
+  if (!bucket || now - bucket.startedAt > rateWindowMs) {
+    rateBuckets.set(key, { startedAt: now, count: 1 });
+    return next();
+  }
+
+  if (bucket.count >= HUB_RATE_LIMIT_PER_MINUTE) {
+    return res.status(429).json({ ok: false, error: 'rate_limited' });
+  }
+
+  bucket.count += 1;
+  return next();
+}
+
+async function ensureSessionTable() {
+  await sql(`create table if not exists l5_auth_sessions (
+    session_token text primary key,
+    account_id uuid not null references l5_accounts(account_id) on delete cascade,
+    status text not null default 'active',
+    created_at timestamptz not null default now(),
+    expires_at timestamptz not null,
+    last_seen_at timestamptz
+  );`);
+
+  await sql(`create index if not exists l5_auth_sessions_account_idx on l5_auth_sessions(account_id);`);
+  await sql(`create index if not exists l5_auth_sessions_expires_idx on l5_auth_sessions(expires_at);`);
+}
+
+async function ensureActionLogTable() {
+  await sql(`create table if not exists l5_hub_action_log (
+    log_id bigserial primary key,
+    action text not null,
+    actor_account_id uuid,
+    route text not null,
+    method text not null,
+    status text not null,
+    details jsonb,
+    created_at timestamptz not null default now()
+  );`);
+
+  await sql(`create index if not exists l5_hub_action_log_actor_idx on l5_hub_action_log(actor_account_id, created_at desc);`);
+}
+
+async function resolveAccountFromSession(req) {
+  const sessionToken = scopeSessionToken(req);
+  if (!sessionToken) return null;
+
+  await ensureSessionTable();
+  const rows = await sql(`select account_id from l5_auth_sessions
+    where session_token='${esc(sessionToken)}' and status='active' and expires_at > now()
+    limit 1;`);
+  const accountId = rows[0]?.account_id || null;
+  if (!accountId) return null;
+
+  await sql(`update l5_auth_sessions set last_seen_at=now() where session_token='${esc(sessionToken)}';`);
+  return accountId;
+}
+
+async function resolveAccount(req) {
+  const accountFromSession = await resolveAccountFromSession(req);
+  const scoped = scopeAccount(req);
+  if (accountFromSession && scoped && scoped !== accountFromSession) return null;
+  return accountFromSession || scoped || null;
+}
+
+async function logAction({ action, actorAccountId = null, req, status = 'ok', details = {} }) {
+  try {
+    await ensureActionLogTable();
+    const detailsJson = esc(JSON.stringify(details || {}));
+    await sql(`insert into l5_hub_action_log (action, actor_account_id, route, method, status, details)
+      values ('${esc(action)}', ${actorAccountId ? `'${esc(actorAccountId)}'` : 'null'}, '${esc(req.path)}', '${esc(req.method)}', '${esc(status)}', '${detailsJson}'::jsonb);`);
+  } catch (_e) {
+    // Best-effort only. Logging must never break the main request path.
+  }
 }
 
 async function getAccountRole(accountId) {
@@ -96,7 +193,7 @@ app.get('/hub/cycle/latest', async (_req, res) => {
 
 app.post('/hub/cycle/run', async (req, res) => {
   try {
-    const actorId = scopeAccount(req) || req.body?.actor_account_id;
+    const actorId = (await resolveAccount(req)) || req.body?.actor_account_id;
     const role = await getAccountRole(actorId);
     if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
 
@@ -105,6 +202,7 @@ app.post('/hub/cycle/run', async (req, res) => {
     if (!Number.isFinite(cycleId)) return res.status(400).json({ ok: false, error: 'invalid_cycle_id' });
 
     const data = await sql(`select l5_run_cycle(${cycleId}, ${poolOpen}) as result;`);
+    await logAction({ action: 'cycle_run', actorAccountId: actorId, req, details: { cycleId, poolOpen } });
     res.json({ ok: true, data: data[0]?.result || null });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
@@ -113,7 +211,7 @@ app.post('/hub/cycle/run', async (req, res) => {
 
 app.get('/hub/machines', async (req, res) => {
   try {
-    const accountId = scopeAccount(req);
+    const accountId = await resolveAccount(req);
     const where = accountId ? `where account_id='${esc(accountId)}'` : '';
     const data = await sql(`select machine_id,account_id,plan,fast_cycle_fee,last_burn_cycle_id,plan_updated_at
       from l5_machine_entitlements ${where} order by plan_updated_at desc limit 200;`);
@@ -125,7 +223,7 @@ app.get('/hub/machines', async (req, res) => {
 
 app.post('/hub/machines/:machineId/plan', async (req, res) => {
   try {
-    const actorId = scopeAccount(req) || req.body?.actor_account_id;
+    const actorId = (await resolveAccount(req)) || req.body?.actor_account_id;
     const actorRole = await getAccountRole(actorId);
     const { machineId } = req.params;
     const { plan } = req.body;
@@ -140,6 +238,7 @@ app.post('/hub/machines/:machineId/plan', async (req, res) => {
     }
 
     await sql(`update l5_machine_entitlements set plan='${esc(plan)}', plan_updated_at=now() where machine_id='${esc(machineId)}';`);
+    await logAction({ action: 'machine_set_plan', actorAccountId: actorId, req, details: { machineId, plan } });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
@@ -149,7 +248,7 @@ app.post('/hub/machines/:machineId/plan', async (req, res) => {
 app.get('/hub/rewards/ledger', async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 50), 200);
-    const accountId = scopeAccount(req);
+    const accountId = await resolveAccount(req);
     const where = accountId
       ? `where source_account_id='${esc(accountId)}' or target_account_id='${esc(accountId)}'`
       : '';
@@ -163,7 +262,7 @@ app.get('/hub/rewards/ledger', async (req, res) => {
 
 app.get('/hub/rewards/balances', async (req, res) => {
   try {
-    const accountId = scopeAccount(req);
+    const accountId = await resolveAccount(req);
     const [pool, accounts] = await Promise.all([
       sql(`select * from v_l5_pool_balance;`),
       sql(accountId
@@ -178,7 +277,7 @@ app.get('/hub/rewards/balances', async (req, res) => {
 
 app.get('/hub/contributions', async (req, res) => {
   try {
-    const accountId = scopeAccount(req);
+    const accountId = await resolveAccount(req);
     const where = accountId ? `where account_id='${esc(accountId)}'` : '';
     const data = await sql(`select submission_id,account_id,submission_hash,title,class,state,verdict,measured_score,appeal_deadline,updated_at
       from l5_contributor_submissions ${where} order by updated_at desc limit 200;`);
@@ -207,6 +306,7 @@ app.post('/hub/contributions', async (req, res) => {
       values ('${esc(account_id)}', '${esc(submission_hash)}', '${esc(title)}', '${esc(class_name)}', ${Number(stake_amount)}, 'stake_locked')
       on conflict (submission_hash) do update set updated_at = now();`);
 
+    await logAction({ action: 'contribution_upsert', actorAccountId: account_id, req, details: { submission_hash, class_name } });
     res.json({ ok: true, account_id });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
@@ -215,7 +315,7 @@ app.post('/hub/contributions', async (req, res) => {
 
 app.get('/hub/governance/appeals', async (req, res) => {
   try {
-    const accountId = scopeAccount(req);
+    const accountId = await resolveAccount(req);
     const where = accountId
       ? `where opened_by_account_id='${esc(accountId)}' or submission_id in (select submission_id from l5_contributor_submissions where account_id='${esc(accountId)}')`
       : '';
@@ -229,12 +329,13 @@ app.get('/hub/governance/appeals', async (req, res) => {
 
 app.post('/hub/governance/appeals', async (req, res) => {
   try {
-    const actorId = scopeAccount(req) || req.body?.opened_by_account_id;
+    const actorId = (await resolveAccount(req)) || req.body?.opened_by_account_id;
     const { submission_id, opened_by_account_id, reason, evidence_uri = null, fee_amount = 0.10 } = req.body || {};
     if (!submission_id || !opened_by_account_id || !reason) return res.status(400).json({ ok: false, error: 'missing_fields' });
     if (actorId !== opened_by_account_id) return res.status(403).json({ ok: false, error: 'forbidden_actor_mismatch' });
 
     const data = await sql(`select l5_open_appeal('${esc(submission_id)}', '${esc(opened_by_account_id)}', '${esc(reason)}', ${evidence_uri ? `'${esc(evidence_uri)}'` : 'null'}, ${Number(fee_amount)}) as result;`);
+    await logAction({ action: 'appeal_open', actorAccountId: actorId, req, details: { submission_id } });
     res.json({ ok: true, data: data[0]?.result || null });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
@@ -243,7 +344,7 @@ app.post('/hub/governance/appeals', async (req, res) => {
 
 app.get('/hub/governance/votes', async (req, res) => {
   try {
-    const accountId = scopeAccount(req);
+    const accountId = await resolveAccount(req);
     const where = accountId ? `where voter_account_id='${esc(accountId)}'` : '';
     const data = await sql(`select vote_id,appeal_id,voter_account_id,vote,weight,voted_at
       from l5_governance_votes ${where} order by voted_at desc limit 200;`);
@@ -255,7 +356,7 @@ app.get('/hub/governance/votes', async (req, res) => {
 
 app.post('/hub/governance/votes', async (req, res) => {
   try {
-    const actorId = scopeAccount(req) || req.body?.voter_account_id;
+    const actorId = (await resolveAccount(req)) || req.body?.voter_account_id;
     const actorRole = await getAccountRole(actorId);
     const { appeal_id, voter_account_id, vote, weight = 1 } = req.body || {};
     if (!appeal_id || !voter_account_id || !['yes', 'no', 'abstain'].includes(vote)) {
@@ -268,6 +369,7 @@ app.post('/hub/governance/votes', async (req, res) => {
       values ('${esc(appeal_id)}', '${esc(voter_account_id)}', '${esc(vote)}', ${Number(weight)})
       on conflict (appeal_id, voter_account_id) do update set vote='${esc(vote)}', weight=${Number(weight)}, voted_at=now();`);
 
+    await logAction({ action: 'appeal_vote', actorAccountId: actorId, req, details: { appeal_id, vote, weight } });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
@@ -276,7 +378,7 @@ app.post('/hub/governance/votes', async (req, res) => {
 
 app.get('/hub/identity', async (req, res) => {
   try {
-    const accountId = scopeAccount(req);
+    const accountId = await resolveAccount(req);
     if (!accountId) return res.status(400).json({ ok: false, error: 'missing_account_scope' });
 
     await ensureWalletTable();
@@ -301,7 +403,7 @@ app.get('/hub/identity', async (req, res) => {
 
 app.post('/hub/identity/wallet/bind', async (req, res) => {
   try {
-    const actorId = scopeAccount(req) || req.body?.actor_account_id;
+    const actorId = (await resolveAccount(req)) || req.body?.actor_account_id;
     const { account_id, wallet_address, chain_id = 'evm:1' } = req.body || {};
 
     if (!actorId || !account_id || !wallet_address) {
@@ -339,12 +441,58 @@ app.post('/hub/identity/wallet/bind', async (req, res) => {
     const walletRows = await sql(`select account_id, wallet_address, chain_id, verification_status, verification_method, bound_at, verified_at, updated_at
       from l5_wallet_identities where account_id='${esc(account_id)}' limit 1;`);
 
+    await logAction({ action: 'wallet_bind', actorAccountId: actorId, req, details: { chain_id } });
     res.json({
       ok: true,
       message: 'wallet_bound_unverified',
       wallet_identity: walletRows[0] || null,
       next_step: 'signature_verification_pending_implementation'
     });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post('/hub/session/create', async (req, res) => {
+  try {
+    const accountId = (req.body?.account_id || '').toString().trim();
+    if (!accountId) return res.status(400).json({ ok: false, error: 'missing_account_id' });
+
+    const accountRows = await sql(`select account_id from l5_accounts where account_id='${esc(accountId)}' limit 1;`);
+    if (!accountRows[0]) return res.status(404).json({ ok: false, error: 'account_not_found' });
+
+    await ensureSessionTable();
+
+    const sessionToken = crypto.randomBytes(24).toString('hex');
+    await sql(`insert into l5_auth_sessions (session_token, account_id, status, expires_at, last_seen_at)
+      values ('${esc(sessionToken)}', '${esc(accountId)}', 'active', now() + interval '${Number(SESSION_TTL_HOURS)} hours', now());`);
+
+    await logAction({ action: 'session_create', actorAccountId: accountId, req, details: { ttl_hours: Number(SESSION_TTL_HOURS) } });
+    res.json({ ok: true, account_id: accountId, session_token: sessionToken, expires_in_hours: Number(SESSION_TTL_HOURS) });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.get('/hub/audit/actions', async (req, res) => {
+  try {
+    const actorId = await resolveAccount(req);
+    if (!actorId) return res.status(401).json({ ok: false, error: 'unauthorized' });
+
+    const role = await getAccountRole(actorId);
+    const limit = Math.min(Number(req.query.limit || 50), 200);
+    await ensureActionLogTable();
+
+    const where = canAdmin(role)
+      ? ''
+      : `where actor_account_id='${esc(actorId)}'`;
+
+    const data = await sql(`select log_id, action, actor_account_id, route, method, status, details, created_at
+      from l5_hub_action_log ${where}
+      order by created_at desc
+      limit ${limit};`);
+
+    res.json({ ok: true, data, actor_account_id: actorId, actor_role: role || null });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }

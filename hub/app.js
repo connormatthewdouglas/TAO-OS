@@ -4,11 +4,19 @@ const installCmd = `git clone https://github.com/connormatthewdouglas/CursiveOS.
 document.getElementById('installCmd').textContent = installCmd;
 
 let ACTIVE_ACCOUNT_ID = null;
+let ACTIVE_SESSION_TOKEN = null;
 
 function withScope(path) {
   if (!ACTIVE_ACCOUNT_ID) return path;
   const sep = path.includes('?') ? '&' : '?';
   return `${path}${sep}account_id=${encodeURIComponent(ACTIVE_ACCOUNT_ID)}`;
+}
+
+function authHeaders() {
+  return {
+    ...(ACTIVE_ACCOUNT_ID ? { 'x-account-id': ACTIVE_ACCOUNT_ID } : {}),
+    ...(ACTIVE_SESSION_TOKEN ? { 'x-session-token': ACTIVE_SESSION_TOKEN } : {})
+  };
 }
 
 function setResult(id, text, ok = true) {
@@ -27,7 +35,7 @@ function apiMessage(result, fallback = 'request_failed') {
 }
 
 async function jget(path) {
-  const res = await fetch(`${API}${withScope(path)}`);
+  const res = await fetch(`${API}${withScope(path)}`, { headers: authHeaders() });
   return res.json();
 }
 
@@ -36,7 +44,7 @@ async function jpost(path, body) {
   if (ACTIVE_ACCOUNT_ID && !payload.actor_account_id) payload.actor_account_id = ACTIVE_ACCOUNT_ID;
   const res = await fetch(`${API}${withScope(path)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(ACTIVE_ACCOUNT_ID ? { 'x-account-id': ACTIVE_ACCOUNT_ID } : {}) },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(payload)
   });
   return res.json();
@@ -53,29 +61,49 @@ function setScopedDefaults() {
   if (appealInput && !appealInput.value) appealInput.value = ACTIVE_ACCOUNT_ID || '';
 }
 
+async function establishSession(accountId) {
+  if (!accountId) {
+    ACTIVE_SESSION_TOKEN = null;
+    return;
+  }
+  const session = await fetch(`${API}/hub/session/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(accountId ? { 'x-account-id': accountId } : {}) },
+    body: JSON.stringify({ account_id: accountId })
+  }).then(r => r.json());
+
+  if (!session.ok || !session.session_token) {
+    throw new Error(`session_create_failed:${apiMessage(session)}`);
+  }
+  ACTIVE_SESSION_TOKEN = session.session_token;
+}
+
 async function bootstrapAccount() {
   const boot = await fetch(`${API}/hub/session/bootstrap`).then(r => r.json());
   const sel = document.getElementById('accountSelect');
   sel.innerHTML = (boot.accounts || []).map(a => `<option value="${a.account_id}">${a.role} · ${a.account_id.slice(0, 8)}...</option>`).join('');
   ACTIVE_ACCOUNT_ID = boot.suggested_account_id || boot.accounts?.[0]?.account_id || null;
   if (ACTIVE_ACCOUNT_ID) sel.value = ACTIVE_ACCOUNT_ID;
+  await establishSession(ACTIVE_ACCOUNT_ID);
   setScopedDefaults();
   sel.addEventListener('change', async () => {
     ACTIVE_ACCOUNT_ID = sel.value;
+    await establishSession(ACTIVE_ACCOUNT_ID);
     setScopedDefaults();
     await load();
   });
 }
 
 async function load() {
-  const [cycle, machines, ledger, contrib, appeals, balances, identity] = await Promise.all([
+  const [cycle, machines, ledger, contrib, appeals, balances, identity, audit] = await Promise.all([
     jget('/hub/cycle/latest'),
     jget('/hub/machines'),
     jget('/hub/rewards/ledger?limit=20'),
     jget('/hub/contributions'),
     jget('/hub/governance/appeals'),
     jget('/hub/rewards/balances'),
-    jget('/hub/identity')
+    jget('/hub/identity'),
+    jget('/hub/audit/actions?limit=5')
   ]);
 
   const c = cycle.data;
@@ -89,6 +117,11 @@ async function load() {
   document.getElementById('identityCard').innerHTML = identity.ok
     ? `Identity: ${ACTIVE_ACCOUNT_ID?.slice(0, 8) || '--'}... · Rail: internal_credits · <span class="badge ${verifyClass}">${verifyLabel}</span>${wi?.wallet_address ? ` · Wallet: ${wi.wallet_address}` : ' · Wallet: not bound'}`
     : `Identity: unavailable (${identity.error || 'unknown_error'})`;
+
+  const auditItems = (audit?.data || []).map(a => `${a.action}@${a.created_at?.slice(11, 19) || '--:--:--'}`);
+  document.getElementById('actionTrailSummary').textContent = audit?.ok
+    ? `Recent actions: ${auditItems.length ? auditItems.join(' · ') : 'none yet'}`
+    : `Recent actions unavailable (${apiMessage(audit)})`;
 
   rows('machinesBody', machines.data, m => `<tr><td>${m.machine_id}</td><td>${m.plan}</td><td>${m.fast_cycle_fee}</td><td>${m.last_burn_cycle_id ?? '-'}</td></tr>`);
   rows('ledgerBody', ledger.data, e => `<tr><td>${e.event_type}</td><td>${e.bucket}</td><td>${e.amount}</td><td>${e.cycle_id}</td></tr>`);

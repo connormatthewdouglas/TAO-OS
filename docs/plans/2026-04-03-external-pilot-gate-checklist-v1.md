@@ -28,9 +28,9 @@ Status: In progress
 - Evidence: appeals and votes endpoints + UI.
 
 6) Permission safety
-- Status: PARTIAL
-- Current: admin-only cycle run, owner/admin plan guard, actor-match checks.
-- Missing: stronger role policy map and token-backed identity.
+- Status: PASS (auth-lite)
+- Current: admin-only cycle run, owner/admin plan guard, actor-match checks, session token -> account mapping, per-route rate limit, audit action trail endpoint.
+- Missing (post-pilot hardening): strict token-only mode (remove account_id fallback), signature verification for wallet ownership.
 
 7) No-SQL operator journey validated
 - Status: PASS
@@ -41,13 +41,19 @@ Status: In progress
 - Evidence: incentive-layer detailed doc + onboarding draft.
 
 ## Blockers before external pilot
-1) Replace account_id query/header scoping with real auth session token mapping.
-2) Add minimal abuse controls (rate limits + action logging visibility in Hub).
-3) Run second no-SQL E2E with non-admin + admin accounts and record evidence.
+1) None for MVP rail-mode gate.
+
+## Re-evaluation (2026-04-03)
+- No-SQL E2E pass #2 complete (admin + non-admin):
+  - consumer cycle run blocked with `forbidden_admin_only`.
+  - session token mismatch blocked (`missing_account_scope` due token/account mismatch).
+  - consumer wallet bind succeeds as `unverified` and is visible in identity.
+  - consumer audit log only shows own actions; admin sees global action trail.
+- Gate decision: GO for supervised external pilot (rail mode).
 
 ## Next execution order
-1) Add auth-lite token flow for Hub API (session token -> account_id mapping).
-2) Add abuse controls and activity visibility (rate limit + request/action trail).
-3) Run second no-SQL E2E with non-admin + admin accounts.
-4) Re-evaluate gate and mark GO/NO-GO.
-5) Queue post-pilot hardening: signature-based wallet verification.
+1) Run supervised pilot cohort and monitor action trail/rate-limit behavior.
+2) Move to strict token-only mode (remove account_id fallback once pilot stable).
+3) Implement signature-based wallet verification.
+4) Add richer abuse controls (IP/account anomaly alerts, ban/slow mode).
+5) Reassess GO/NO-GO for broader public rollout.
