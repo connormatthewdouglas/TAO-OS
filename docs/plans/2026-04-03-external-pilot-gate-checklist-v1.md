@@ -28,9 +28,9 @@ Status: In progress
 - Evidence: appeals and votes endpoints + UI.
 
 6) Permission safety
-- Status: PASS (strict token-mode)
-- Current: admin-only cycle run, owner/admin plan guard, actor-match checks, session token -> account mapping, strict token-required access for `/hub/*` (except session bootstrap/create), per-route rate limit, audit action trail endpoint.
-- Missing (post-pilot hardening): richer anomaly controls (IP/account anomaly alerts, bans/slow mode).
+- Status: PASS (strict token + abuse controls)
+- Current: admin-only cycle run, owner/admin plan guard, actor-match checks, session token -> account mapping, strict token-required access for `/hub/*` (except session bootstrap/create), per-route rate limit, account controls (`normal`/`slow`/`blocked`), anomaly stream, and temporary network lockout policy.
+- Missing (post-pilot hardening): external IP reputation/ASN/geo enrichment and automated resolution workflows.
 
 7) No-SQL operator journey validated
 - Status: PASS
@@ -52,11 +52,12 @@ Status: In progress
   - consumer audit log only shows own actions; admin sees global action trail.
   - admin account controls work (`normal`/`slow`/`blocked`), and blocked users receive `account_blocked`.
   - anomaly stream records auth/rate/control events for admin review.
+  - temporary network lockout triggers on repeated high-risk signals and can be cleared by admin endpoint.
 - Gate decision: GO for supervised external pilot (rail mode).
 
 ## Next execution order
 1) Run supervised pilot cohort and monitor action trail/rate-limit behavior.
-2) Add network-level abuse controls (IP reputation, geo/ASN anomaly signals, automated temporary lockouts).
+2) Add external enrichment for anomaly signals (IP reputation, geo/ASN context) and auto-resolution runbooks.
 3) Reassess GO/NO-GO for broader public rollout.
 4) Prepare migration to stronger auth provider once pilot behavior data is stable.
 5) Define token-rail activation policy gates tied to abuse metrics.

@@ -11,6 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use('/hub', enforceRateLimit);
+app.use('/hub', enforceNetworkLockout);
 app.use('/hub', requireHubSession);
 app.use('/hub', enforceAccountControl);
 
@@ -20,9 +21,13 @@ const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
 const SESSION_TTL_HOURS = Number(process.env.HUB_SESSION_TTL_HOURS || 24);
 const HUB_RATE_LIMIT_PER_MINUTE = Number(process.env.HUB_RATE_LIMIT_PER_MINUTE || 180);
 const HUB_SLOW_MODE_DELAY_MS = Number(process.env.HUB_SLOW_MODE_DELAY_MS || 1500);
+const HUB_NETWORK_STRIKE_THRESHOLD = Number(process.env.HUB_NETWORK_STRIKE_THRESHOLD || 6);
+const HUB_NETWORK_STRIKE_WINDOW_SECONDS = Number(process.env.HUB_NETWORK_STRIKE_WINDOW_SECONDS || 120);
+const HUB_NETWORK_LOCKOUT_MINUTES = Number(process.env.HUB_NETWORK_LOCKOUT_MINUTES || 10);
 
 const rateWindowMs = 60 * 1000;
 const rateBuckets = new Map();
+const networkStrikeBuckets = new Map();
 
 function esc(v) {
   return String(v ?? '').replace(/'/g, "''");
@@ -34,6 +39,24 @@ function scopeAccount(req) {
 
 function scopeSessionToken(req) {
   return (req.headers['x-session-token'] || req.query.session_token || '').toString().trim() || null;
+}
+
+function clientIp(req) {
+  const forwarded = (req.headers['x-forwarded-for'] || '').toString().trim();
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim();
+    if (first) return first;
+  }
+  return (req.ip || '').toString();
+}
+
+function networkSnapshot(req) {
+  return {
+    ip: clientIp(req),
+    forwarded_for: (req.headers['x-forwarded-for'] || '').toString() || null,
+    user_agent: (req.headers['user-agent'] || '').toString() || null,
+    accept_language: (req.headers['accept-language'] || '').toString() || null
+  };
 }
 
 function rateLimitKey(req) {
@@ -56,7 +79,7 @@ function enforceRateLimit(req, res, next) {
     const sessionToken = scopeSessionToken(req);
     if (sessionToken) {
       resolveAccountFromSession(req)
-        .then((acct) => recordAnomaly({ accountId: acct, signalType: 'rate_limited', severity: 'medium', req, details: { per_minute: HUB_RATE_LIMIT_PER_MINUTE } }))
+        .then((acct) => registerNetworkStrike({ req, signalType: 'rate_limited', severity: 'medium', accountId: acct }))
         .catch(() => {});
     }
     return res.status(429).json({ ok: false, error: 'rate_limited' });
@@ -120,6 +143,86 @@ async function ensureAnomalyTable() {
   await sql(`create index if not exists l5_hub_anomaly_account_idx on l5_hub_anomaly_events(account_id, created_at desc);`);
 }
 
+async function ensureNetworkLockoutTable() {
+  await sql(`create table if not exists l5_hub_network_lockouts (
+    lockout_key text primary key,
+    lockout_until timestamptz not null,
+    reason text not null,
+    strike_count int not null default 0,
+    details jsonb,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+  );`);
+
+  await sql(`create index if not exists l5_hub_network_lockouts_until_idx on l5_hub_network_lockouts(lockout_until);`);
+}
+
+async function getActiveNetworkLockout(lockoutKey) {
+  if (!lockoutKey) return null;
+  await ensureNetworkLockoutTable();
+  const rows = await sql(`select lockout_key, lockout_until, reason, strike_count, details, created_at, updated_at
+    from l5_hub_network_lockouts
+    where lockout_key='${esc(lockoutKey)}' and lockout_until > now()
+    limit 1;`);
+  return rows[0] || null;
+}
+
+async function setNetworkLockout({ lockoutKey, reason, strikeCount, details = {} }) {
+  if (!lockoutKey) return;
+  await ensureNetworkLockoutTable();
+  const detailsJson = esc(JSON.stringify(details || {}));
+  await sql(`insert into l5_hub_network_lockouts (lockout_key, lockout_until, reason, strike_count, details, updated_at)
+    values ('${esc(lockoutKey)}', now() + interval '${Number(HUB_NETWORK_LOCKOUT_MINUTES)} minutes', '${esc(reason)}', ${Number(strikeCount || 0)}, '${detailsJson}'::jsonb, now())
+    on conflict (lockout_key) do update
+    set lockout_until=excluded.lockout_until,
+        reason=excluded.reason,
+        strike_count=excluded.strike_count,
+        details=excluded.details,
+        updated_at=now();`);
+}
+
+async function registerNetworkStrike({ req, signalType, severity = 'medium', accountId = null }) {
+  const ip = clientIp(req);
+  if (!ip) return;
+
+  const key = `ip:${ip}`;
+  const now = Date.now();
+  const windowMs = Number(HUB_NETWORK_STRIKE_WINDOW_SECONDS) * 1000;
+  const bucket = networkStrikeBuckets.get(key);
+
+  let count = 1;
+  if (!bucket || now - bucket.startedAt > windowMs) {
+    networkStrikeBuckets.set(key, { startedAt: now, count: 1 });
+  } else {
+    bucket.count += 1;
+    count = bucket.count;
+  }
+
+  await recordAnomaly({
+    accountId,
+    signalType,
+    severity,
+    req,
+    details: { ...networkSnapshot(req), strike_count: count, strike_window_seconds: Number(HUB_NETWORK_STRIKE_WINDOW_SECONDS) }
+  });
+
+  if (count >= Number(HUB_NETWORK_STRIKE_THRESHOLD)) {
+    await setNetworkLockout({
+      lockoutKey: key,
+      reason: `auto_lockout:${signalType}`,
+      strikeCount: count,
+      details: { ...networkSnapshot(req), strike_threshold: Number(HUB_NETWORK_STRIKE_THRESHOLD), strike_window_seconds: Number(HUB_NETWORK_STRIKE_WINDOW_SECONDS) }
+    });
+    await recordAnomaly({
+      accountId,
+      signalType: 'network_temp_lockout',
+      severity: 'high',
+      req,
+      details: { ...networkSnapshot(req), lockout_minutes: Number(HUB_NETWORK_LOCKOUT_MINUTES), strike_count: count }
+    });
+  }
+}
+
 async function getAccountControl(accountId) {
   if (!accountId) return null;
   await ensureAccountControlTable();
@@ -165,18 +268,46 @@ async function requireHubSession(req, res, next) {
 
     const accountFromSession = await resolveAccountFromSession(req);
     if (!accountFromSession) {
-      await recordAnomaly({ signalType: 'auth_missing_session', severity: 'high', req });
+      await registerNetworkStrike({ req, signalType: 'auth_missing_session', severity: 'high' });
       return res.status(401).json({ ok: false, error: 'unauthorized_session_required' });
     }
 
     const scoped = scopeAccount(req);
     if (scoped && scoped !== accountFromSession) {
-      await recordAnomaly({ accountId: accountFromSession, signalType: 'auth_scope_mismatch', severity: 'high', req, details: { scoped_account_id: scoped } });
+      await registerNetworkStrike({ req, signalType: 'auth_scope_mismatch', severity: 'high', accountId: accountFromSession });
       return res.status(403).json({ ok: false, error: 'forbidden_account_scope_mismatch' });
     }
 
     req.authAccountId = accountFromSession;
     return next();
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+}
+
+async function enforceNetworkLockout(req, res, next) {
+  try {
+    if (isSessionOptionalPath(req.path) || req.path.startsWith('/admin/')) return next();
+
+    const ip = clientIp(req);
+    if (!ip) return next();
+
+    const lockout = await getActiveNetworkLockout(`ip:${ip}`);
+    if (!lockout) return next();
+
+    await recordAnomaly({
+      signalType: 'network_lockout_rejected_request',
+      severity: 'medium',
+      req,
+      details: { ...networkSnapshot(req), lockout_until: lockout.lockout_until, reason: lockout.reason }
+    });
+
+    return res.status(429).json({
+      ok: false,
+      error: 'network_temporarily_locked',
+      lockout_until: lockout.lockout_until,
+      reason: lockout.reason
+    });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e.message || e) });
   }
@@ -741,6 +872,47 @@ app.get('/hub/admin/anomalies', async (req, res) => {
       order by created_at desc
       limit ${limit};`);
     res.json({ ok: true, data });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.get('/hub/admin/network-lockouts', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+
+    await ensureNetworkLockoutTable();
+    const limit = Math.min(Number(req.query.limit || 200), 500);
+    const activeOnly = String(req.query.active_only || 'true') !== 'false';
+    const where = activeOnly ? 'where lockout_until > now()' : '';
+    const data = await sql(`select lockout_key, lockout_until, reason, strike_count, details, created_at, updated_at
+      from l5_hub_network_lockouts
+      ${where}
+      order by lockout_until desc
+      limit ${limit};`);
+    res.json({ ok: true, data, active_only: activeOnly });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+app.post('/hub/admin/network-lockouts/clear', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+
+    const { lockout_key } = req.body || {};
+    if (!lockout_key) return res.status(400).json({ ok: false, error: 'missing_lockout_key' });
+
+    await ensureNetworkLockoutTable();
+    await sql(`delete from l5_hub_network_lockouts where lockout_key='${esc(lockout_key)}';`);
+    networkStrikeBuckets.delete(lockout_key);
+
+    await logAction({ action: 'network_lockout_cleared', actorAccountId: actorId, req, details: { lockout_key } });
+    res.json({ ok: true, lockout_key });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }
