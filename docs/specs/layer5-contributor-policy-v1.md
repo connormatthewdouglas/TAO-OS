@@ -1,6 +1,11 @@
 # Layer 5 Contributor Policy v1 (Day 5 Freeze)
 
-Status: FROZEN v1
+> **SUPERSEDED** — This document reflects v1.1 economics (stakes, slashes, credit burns, trust tiers).
+> v3.1 replaces stakes/slashes with free participation + reputation cooldowns, and replaces credits with BTC.
+> **Current reference:** `docs/specs/layer5-economics-v3.1.md` and `white-paper.md` (Section 4).
+> Kept as historical record only.
+
+Status: FROZEN v1 — SUPERSEDED BY v3.1
 Date: 2026-04-02
 Owner: Copper Sage
 

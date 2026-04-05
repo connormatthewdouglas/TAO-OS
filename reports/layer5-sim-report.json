@@ -1,0 +1,504 @@
+{
+  "params": {
+    "F_fast_usd": 2.0,
+    "btc_price_usd": 85000.0,
+    "payout_pot_fraction": 0.6,
+    "pool_fraction": 0.4,
+    "babylon_gross_yield": 0.065,
+    "staking_fraction": 0.5,
+    "cycles_per_year": 12,
+    "validator_vote_points": 100,
+    "min_vote_threshold": 0.01,
+    "low_vote_cooldown_trigger": 3,
+    "cooldown_cycles": 5
+  },
+  "summary": {
+    "cycles": 12,
+    "pool_principal_final_btc": 0.00056471,
+    "pool_principal_final_usd": 48.0,
+    "total_fast_revenue_usd": 120.0,
+    "total_payout_pot_distributed_btc": 0.00084708,
+    "total_babylon_yield_btc": 9.93e-06,
+    "total_babylon_yield_usd": 0.844,
+    "effective_yield_rate_per_cycle": 0.002708,
+    "btc_price_used": 85000.0
+  },
+  "contributors_final": {
+    "alice": {
+      "lifetime_votes": 1082.4941,
+      "total_payout_btc": 0.0002547,
+      "total_payout_usd": 21.6499,
+      "total_royalty_btc": 2.02e-06,
+      "total_royalty_usd": 0.1716,
+      "cooldown_remaining": 0
+    },
+    "bob": {
+      "lifetime_votes": 1071.1888,
+      "total_payout_btc": 0.00025204,
+      "total_payout_usd": 21.4238,
+      "total_royalty_btc": 2.16e-06,
+      "total_royalty_usd": 0.1838,
+      "cooldown_remaining": 0
+    },
+    "carol": {
+      "lifetime_votes": 1446.3171,
+      "total_payout_btc": 0.00034031,
+      "total_payout_usd": 28.9263,
+      "total_royalty_btc": 3.39e-06,
+      "total_royalty_usd": 0.2883,
+      "cooldown_remaining": 0
+    }
+  },
+  "cycles": [
+    {
+      "cycle_id": 1,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 4.706e-05,
+      "cycle_yield_btc": 1.3e-07,
+      "accepted_submissions": 3,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 300.0,
+      "contributor_payouts": [
+        {
+          "account_id": "alice",
+          "cycle_votes": 98.6849,
+          "vote_share_pct": 32.89,
+          "payout_btc": 2.322e-05,
+          "payout_usd": 1.9737,
+          "royalty_btc": 4e-08,
+          "royalty_usd": 0.0036,
+          "lifetime_votes_after": 98.6849
+        },
+        {
+          "account_id": "bob",
+          "cycle_votes": 106.3724,
+          "vote_share_pct": 35.46,
+          "payout_btc": 2.503e-05,
+          "payout_usd": 2.1274,
+          "royalty_btc": 5e-08,
+          "royalty_usd": 0.0038,
+          "lifetime_votes_after": 106.3724
+        },
+        {
+          "account_id": "carol",
+          "cycle_votes": 94.9427,
+          "vote_share_pct": 31.65,
+          "payout_btc": 2.234e-05,
+          "payout_usd": 1.8989,
+          "royalty_btc": 4e-08,
+          "royalty_usd": 0.0034,
+          "lifetime_votes_after": 94.9427
+        }
+      ]
+    },
+    {
+      "cycle_id": 2,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 9.412e-05,
+      "cycle_yield_btc": 2.5e-07,
+      "accepted_submissions": 3,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 600.0,
+      "contributor_payouts": [
+        {
+          "account_id": "alice",
+          "cycle_votes": 79.1918,
+          "vote_share_pct": 26.4,
+          "payout_btc": 1.863e-05,
+          "payout_usd": 1.5838,
+          "royalty_btc": 8e-08,
+          "royalty_usd": 0.0064,
+          "lifetime_votes_after": 177.8767
+        },
+        {
+          "account_id": "bob",
+          "cycle_votes": 64.607,
+          "vote_share_pct": 21.54,
+          "payout_btc": 1.52e-05,
+          "payout_usd": 1.2921,
+          "royalty_btc": 7e-08,
+          "royalty_usd": 0.0062,
+          "lifetime_votes_after": 170.9793
+        },
+        {
+          "account_id": "carol",
+          "cycle_votes": 156.2012,
+          "vote_share_pct": 52.07,
+          "payout_btc": 3.675e-05,
+          "payout_usd": 3.124,
+          "royalty_btc": 1.1e-07,
+          "royalty_usd": 0.0091,
+          "lifetime_votes_after": 251.144
+        }
+      ]
+    },
+    {
+      "cycle_id": 3,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00014118,
+      "cycle_yield_btc": 3.8e-07,
+      "accepted_submissions": 1,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 900.0,
+      "contributor_payouts": [
+        {
+          "account_id": "bob",
+          "cycle_votes": 300.0,
+          "vote_share_pct": 100.0,
+          "payout_btc": 7.059e-05,
+          "payout_usd": 6.0,
+          "royalty_btc": 2e-07,
+          "royalty_usd": 0.017,
+          "lifetime_votes_after": 470.9793
+        }
+      ]
+    },
+    {
+      "cycle_id": 4,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00018824,
+      "cycle_yield_btc": 5.1e-07,
+      "accepted_submissions": 3,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 1200.0,
+      "contributor_payouts": [
+        {
+          "account_id": "alice",
+          "cycle_votes": 103.3066,
+          "vote_share_pct": 34.44,
+          "payout_btc": 2.431e-05,
+          "payout_usd": 2.0661,
+          "royalty_btc": 1.2e-07,
+          "royalty_usd": 0.0102,
+          "lifetime_votes_after": 281.1834
+        },
+        {
+          "account_id": "bob",
+          "cycle_votes": 86.8357,
+          "vote_share_pct": 28.95,
+          "payout_btc": 2.043e-05,
+          "payout_usd": 1.7367,
+          "royalty_btc": 2.4e-07,
+          "royalty_usd": 0.0201,
+          "lifetime_votes_after": 557.8151
+        },
+        {
+          "account_id": "carol",
+          "cycle_votes": 109.8576,
+          "vote_share_pct": 36.62,
+          "payout_btc": 2.585e-05,
+          "payout_usd": 2.1972,
+          "royalty_btc": 1.5e-07,
+          "royalty_usd": 0.013,
+          "lifetime_votes_after": 361.0016
+        }
+      ]
+    },
+    {
+      "cycle_id": 5,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00023529,
+      "cycle_yield_btc": 6.4e-07,
+      "accepted_submissions": 1,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 1500.0,
+      "contributor_payouts": [
+        {
+          "account_id": "carol",
+          "cycle_votes": 300.0,
+          "vote_share_pct": 100.0,
+          "payout_btc": 7.059e-05,
+          "payout_usd": 6.0,
+          "royalty_btc": 2.8e-07,
+          "royalty_usd": 0.0239,
+          "lifetime_votes_after": 661.0016
+        }
+      ]
+    },
+    {
+      "cycle_id": 6,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00028235,
+      "cycle_yield_btc": 7.6e-07,
+      "accepted_submissions": 2,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 1800.0,
+      "contributor_payouts": [
+        {
+          "account_id": "bob",
+          "cycle_votes": 230.9631,
+          "vote_share_pct": 76.99,
+          "payout_btc": 5.434e-05,
+          "payout_usd": 4.6193,
+          "royalty_btc": 3.4e-07,
+          "royalty_usd": 0.0285,
+          "lifetime_votes_after": 788.7782
+        },
+        {
+          "account_id": "carol",
+          "cycle_votes": 69.0369,
+          "vote_share_pct": 23.01,
+          "payout_btc": 1.624e-05,
+          "payout_usd": 1.3807,
+          "royalty_btc": 3.1e-07,
+          "royalty_usd": 0.0264,
+          "lifetime_votes_after": 730.0384
+        }
+      ]
+    },
+    {
+      "cycle_id": 7,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00032941,
+      "cycle_yield_btc": 8.9e-07,
+      "accepted_submissions": 2,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 2100.0,
+      "contributor_payouts": [
+        {
+          "account_id": "alice",
+          "cycle_votes": 59.7078,
+          "vote_share_pct": 19.9,
+          "payout_btc": 1.405e-05,
+          "payout_usd": 1.1942,
+          "royalty_btc": 1.4e-07,
+          "royalty_usd": 0.0123,
+          "lifetime_votes_after": 340.8912
+        },
+        {
+          "account_id": "carol",
+          "cycle_votes": 240.2922,
+          "vote_share_pct": 80.1,
+          "payout_btc": 5.654e-05,
+          "payout_usd": 4.8058,
+          "royalty_btc": 4.1e-07,
+          "royalty_usd": 0.035,
+          "lifetime_votes_after": 970.3306
+        }
+      ]
+    },
+    {
+      "cycle_id": 8,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00037647,
+      "cycle_yield_btc": 1.02e-06,
+      "accepted_submissions": 3,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 2400.0,
+      "contributor_payouts": [
+        {
+          "account_id": "alice",
+          "cycle_votes": 84.1317,
+          "vote_share_pct": 28.04,
+          "payout_btc": 1.98e-05,
+          "payout_usd": 1.6826,
+          "royalty_btc": 1.8e-07,
+          "royalty_usd": 0.0153,
+          "lifetime_votes_after": 425.0229
+        },
+        {
+          "account_id": "bob",
+          "cycle_votes": 110.1203,
+          "vote_share_pct": 36.71,
+          "payout_btc": 2.591e-05,
+          "payout_usd": 2.2024,
+          "royalty_btc": 3.8e-07,
+          "royalty_usd": 0.0325,
+          "lifetime_votes_after": 898.8985
+        },
+        {
+          "account_id": "carol",
+          "cycle_votes": 105.748,
+          "vote_share_pct": 35.25,
+          "payout_btc": 2.488e-05,
+          "payout_usd": 2.115,
+          "royalty_btc": 4.6e-07,
+          "royalty_usd": 0.0389,
+          "lifetime_votes_after": 1076.0786
+        }
+      ]
+    },
+    {
+      "cycle_id": 9,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00042353,
+      "cycle_yield_btc": 1.15e-06,
+      "accepted_submissions": 3,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 2700.0,
+      "contributor_payouts": [
+        {
+          "account_id": "alice",
+          "cycle_votes": 109.9808,
+          "vote_share_pct": 36.66,
+          "payout_btc": 2.588e-05,
+          "payout_usd": 2.1996,
+          "royalty_btc": 2.3e-07,
+          "royalty_usd": 0.0193,
+          "lifetime_votes_after": 535.0036
+        },
+        {
+          "account_id": "bob",
+          "cycle_votes": 125.8842,
+          "vote_share_pct": 41.96,
+          "payout_btc": 2.962e-05,
+          "payout_usd": 2.5177,
+          "royalty_btc": 4.4e-07,
+          "royalty_usd": 0.037,
+          "lifetime_votes_after": 1024.7827
+        },
+        {
+          "account_id": "carol",
+          "cycle_votes": 64.135,
+          "vote_share_pct": 21.38,
+          "payout_btc": 1.509e-05,
+          "payout_usd": 1.2827,
+          "royalty_btc": 4.8e-07,
+          "royalty_usd": 0.0412,
+          "lifetime_votes_after": 1140.2136
+        }
+      ]
+    },
+    {
+      "cycle_id": 10,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00047059,
+      "cycle_yield_btc": 1.27e-06,
+      "accepted_submissions": 1,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 3000.0,
+      "contributor_payouts": [
+        {
+          "account_id": "alice",
+          "cycle_votes": 300.0,
+          "vote_share_pct": 100.0,
+          "payout_btc": 7.059e-05,
+          "payout_usd": 6.0,
+          "royalty_btc": 3.5e-07,
+          "royalty_usd": 0.0302,
+          "lifetime_votes_after": 835.0036
+        }
+      ]
+    },
+    {
+      "cycle_id": 11,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00051765,
+      "cycle_yield_btc": 1.4e-06,
+      "accepted_submissions": 3,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 3300.0,
+      "contributor_payouts": [
+        {
+          "account_id": "alice",
+          "cycle_votes": 140.2028,
+          "vote_share_pct": 46.73,
+          "payout_btc": 3.299e-05,
+          "payout_usd": 2.8041,
+          "royalty_btc": 4.1e-07,
+          "royalty_usd": 0.0352,
+          "lifetime_votes_after": 975.2065
+        },
+        {
+          "account_id": "bob",
+          "cycle_votes": 46.4061,
+          "vote_share_pct": 15.47,
+          "payout_btc": 1.092e-05,
+          "payout_usd": 0.9281,
+          "royalty_btc": 4.6e-07,
+          "royalty_usd": 0.0387,
+          "lifetime_votes_after": 1071.1888
+        },
+        {
+          "account_id": "carol",
+          "cycle_votes": 113.3911,
+          "vote_share_pct": 37.8,
+          "payout_btc": 2.668e-05,
+          "payout_usd": 2.2678,
+          "royalty_btc": 5.3e-07,
+          "royalty_usd": 0.0453,
+          "lifetime_votes_after": 1253.6047
+        }
+      ]
+    },
+    {
+      "cycle_id": 12,
+      "fast_user_count": 5,
+      "fast_revenue_usd": 10.0,
+      "fast_revenue_btc": 0.00011765,
+      "payout_pot_btc": 7.059e-05,
+      "pool_inflow_btc": 4.706e-05,
+      "pool_principal_btc": 0.00056471,
+      "cycle_yield_btc": 1.53e-06,
+      "accepted_submissions": 2,
+      "total_cycle_votes": 300.0,
+      "all_lifetime_votes": 3600.0,
+      "contributor_payouts": [
+        {
+          "account_id": "alice",
+          "cycle_votes": 107.2876,
+          "vote_share_pct": 35.76,
+          "payout_btc": 2.524e-05,
+          "payout_usd": 2.1458,
+          "royalty_btc": 4.6e-07,
+          "royalty_usd": 0.0391,
+          "lifetime_votes_after": 1082.4941
+        },
+        {
+          "account_id": "carol",
+          "cycle_votes": 192.7124,
+          "vote_share_pct": 64.24,
+          "payout_btc": 4.534e-05,
+          "payout_usd": 3.8542,
+          "royalty_btc": 6.1e-07,
+          "royalty_usd": 0.0522,
+          "lifetime_votes_after": 1446.3171
+        }
+      ]
+    }
+  ]
+}

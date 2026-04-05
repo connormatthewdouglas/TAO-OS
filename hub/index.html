@@ -3,102 +3,204 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CursiveOS Hub (MVP)</title>
+  <title>CursiveOS Hub</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div>
       <h1>CursiveOS Hub</h1>
-      <p class="subtitle">MVP · internal credits rail</p>
+      <p class="subtitle">v3.1 · BTC + Babylon yield · 60/40 split</p>
     </div>
     <div class="inline-form">
       <select id="accountSelect"></select>
-      <div class="cycle-card" id="cycleCard">Cycle: -- · Status: -- · Pool: --</div>
+      <div class="cycle-card" id="cycleCard">Pool: loading…</div>
       <div class="cycle-card" id="identityCard">Identity: --</div>
     </div>
   </header>
 
   <nav class="tabs" id="tabs">
-    <button data-tab="install" class="active">Install</button>
-    <button data-tab="machines">Machines</button>
-    <button data-tab="rewards">Rewards</button>
-    <button data-tab="contributions">Contributions</button>
-    <button data-tab="governance">Governance</button>
+    <button data-tab="pool" class="active">Pool</button>
+    <button data-tab="cycle">Cycle</button>
+    <button data-tab="vote">Vote</button>
+    <button data-tab="contributors">Contributors</button>
+    <button data-tab="submissions">Submissions</button>
+    <button data-tab="identity">Identity</button>
+    <button data-tab="admin">Admin</button>
   </nav>
 
   <main>
-    <section id="install" class="panel active">
-      <h2>Install</h2>
-      <p>One-command install/run:</p>
-      <pre id="installCmd"></pre>
-      <h3>Connected Identity (Rail Mode)</h3>
+
+    <!-- POOL -->
+    <section id="pool" class="panel active">
+      <h2>Pool State</h2>
+      <div id="poolCards" class="grid">
+        <div class="card"><b>Pool Principal (locked)</b><div id="poolPrincipal">--</div></div>
+        <div class="card"><b>Payout Pot (this cycle)</b><div id="payoutPot">--</div></div>
+        <div class="card"><b>Babylon Yield (this cycle)</b><div id="cycleYield">--</div></div>
+        <div class="card"><b>Fast Revenue (this cycle)</b><div id="fastRevenue">--</div></div>
+        <div class="card"><b>Effective Yield/Cycle</b><div id="effectiveYield">--</div></div>
+        <div class="card"><b>Current Cycle Status</b><div id="cycleStatus">--</div></div>
+      </div>
+      <h3>Cycle History</h3>
+      <table>
+        <thead><tr><th>Cycle</th><th>Fast Users</th><th>Revenue (USD)</th><th>Payout Pot (BTC)</th><th>Pool Principal (BTC)</th><th>Yield (BTC)</th><th>Status</th></tr></thead>
+        <tbody id="allCyclesBody"><tr><td colspan="7">No cycles run yet</td></tr></tbody>
+      </table>
+    </section>
+
+    <!-- CYCLE RUNNER -->
+    <section id="cycle" class="panel">
+      <h2>Cycle Runner</h2>
+      <p class="muted">Admin only. Running a cycle opens it, calculates the 60/40 split, and records pool inflow and payout pot. After running, go to the Vote tab for validators to allocate their 100 points, then close the cycle to settle payouts.</p>
       <div class="inline-form">
-        <input id="walletAddressInput" placeholder="wallet address (claim)" />
-        <input id="walletChainInput" placeholder="chain id (default evm:1)" value="evm:1" />
-        <button id="bindWalletBtn">Bind Wallet (Unverified)</button>
+        <input id="cycleIdInput" type="number" placeholder="cycle id" style="width:110px" />
+        <input id="fastUserCountInput" type="number" placeholder="fast users" value="5" style="width:100px" />
+        <input id="btcPriceInput" type="number" placeholder="BTC/USD (default 85000)" style="width:180px" />
+        <button id="runCycleV31Btn">Open Cycle</button>
+      </div>
+      <pre id="runCycleResult" class="muted"></pre>
+
+      <hr />
+      <h3>Close &amp; Settle Cycle</h3>
+      <p class="muted">Distributes payout pot and yield royalties based on vote results. Updates lifetime vote ledger. Cannot be undone.</p>
+      <div class="inline-form">
+        <input id="closeCycleIdInput" type="number" placeholder="cycle id to close" style="width:140px" />
+        <button id="closeCycleBtn">Close &amp; Settle</button>
+      </div>
+      <pre id="closeCycleResult" class="muted"></pre>
+    </section>
+
+    <!-- VOTE -->
+    <section id="vote" class="panel">
+      <h2>Validator Vote</h2>
+      <p class="muted">Each eligible validator distributes 100 points across accepted submissions. Votes determine payout pot share AND permanently accrue to contributor lifetime vote ledger. Minimum 1% threshold applies.</p>
+
+      <div class="inline-form">
+        <input id="voteCycleIdInput" type="number" placeholder="cycle id" style="width:110px" />
+        <button id="loadSubmissionsForVoteBtn">Load Submissions</button>
+      </div>
+
+      <div id="voteAllocator" style="margin-top:14px;display:none">
+        <p>Distribute your <b>100 points</b> across the submissions below:</p>
+        <div id="voteAllocatorRows"></div>
+        <p id="votePointsRemaining" class="muted">Points used: 0 / 100</p>
+        <button id="submitVotesBtn">Submit Vote Allocation</button>
+        <p id="voteSubmitResult" class="muted"></p>
+      </div>
+
+      <h3>Aggregated Vote Totals</h3>
+      <div class="inline-form">
+        <input id="voteViewCycleId" type="number" placeholder="cycle id" style="width:110px" />
+        <button id="loadVoteTotalsBtn">Load Totals</button>
+      </div>
+      <table style="margin-top:8px">
+        <thead><tr><th>Submission ID</th><th>Total Points</th><th>Vote Share %</th><th>Voters</th></tr></thead>
+        <tbody id="voteTotalsBody"><tr><td colspan="4">No data</td></tr></tbody>
+      </table>
+    </section>
+
+    <!-- CONTRIBUTORS -->
+    <section id="contributors" class="panel">
+      <h2>Lifetime Vote Ledger</h2>
+      <p class="muted">Lifetime votes are append-only and permanent. Yield royalties are paid every cycle proportional to each contributor's lifetime share. Early contributors retain their royalty share forever.</p>
+      <button id="refreshLifetimeBtn">Refresh</button>
+      <p id="allLifetimeVotesDisplay" class="muted">Global lifetime votes: --</p>
+      <table>
+        <thead><tr><th>Account</th><th>Lifetime Votes</th><th>Share %</th><th>Total Payout (BTC)</th><th>Total Royalty (BTC)</th><th>Cooldown Remaining</th></tr></thead>
+        <tbody id="lifetimeVotesBody"><tr><td colspan="6">No data</td></tr></tbody>
+      </table>
+    </section>
+
+    <!-- SUBMISSIONS -->
+    <section id="submissions" class="panel">
+      <h2>Submissions</h2>
+      <div class="inline-form">
+        <input id="contribHash" placeholder="submission hash (git SHA or content hash)" style="width:280px" />
+        <input id="contribTitle" placeholder="title" style="width:200px" />
+        <select id="contribClass">
+          <option value="preset">preset</option>
+          <option value="benchmark">benchmark</option>
+          <option value="hardware_profile">hardware_profile</option>
+          <option value="tooling">tooling</option>
+        </select>
+        <button id="createContribBtn">Submit</button>
+      </div>
+      <p id="createContribResult" class="muted"></p>
+      <table>
+        <thead><tr><th>ID</th><th>Title</th><th>Class</th><th>State</th><th>Verdict</th></tr></thead>
+        <tbody id="contribBody"><tr><td colspan="5">No submissions</td></tr></tbody>
+      </table>
+    </section>
+
+    <!-- IDENTITY -->
+    <section id="identity" class="panel">
+      <h2>Identity &amp; Wallet</h2>
+      <p class="muted">Bind and verify your wallet address. EIP-191 signature verification for EVM wallets. Verified wallet required to receive BTC payouts.</p>
+      <div class="inline-form">
+        <input id="walletAddressInput" placeholder="wallet address" style="width:340px" />
+        <input id="walletChainInput" placeholder="chain id" value="evm:1" style="width:110px" />
+        <button id="bindWalletBtn">Bind (Unverified)</button>
       </div>
       <p id="bindWalletResult" class="muted"></p>
       <div class="inline-form">
-        <button id="walletChallengeBtn">Generate Signature Challenge</button>
-        <input id="walletSignatureInput" placeholder="paste signed message hex" />
-        <button id="walletVerifyBtn">Verify Signature</button>
+        <button id="walletChallengeBtn">Generate Challenge</button>
+        <input id="walletSignatureInput" placeholder="paste signed hex" style="width:380px" />
+        <button id="walletVerifyBtn">Verify</button>
       </div>
       <pre id="walletChallengeMessage" class="muted"></pre>
       <p id="walletVerifyResult" class="muted"></p>
       <p id="actionTrailSummary" class="muted">Recent actions: --</p>
 
-      <h3>Cycle Runner (Admin)</h3>
-      <div class="inline-form">
-        <input id="cycleIdInput" type="number" placeholder="cycle id (e.g. 11)" />
-        <input id="poolOpenInput" type="number" placeholder="pool open (e.g. 1030.25)" />
-        <button id="runCycleBtn">Run Cycle</button>
-      </div>
-      <p id="runCycleResult" class="muted"></p>
+      <h3>Install</h3>
+      <pre id="installCmd"></pre>
     </section>
 
-    <section id="machines" class="panel">
-      <h2>Machines</h2>
+    <!-- ADMIN -->
+    <section id="admin" class="panel">
+      <h2>Admin</h2>
+
+      <h3>Dispense Test Funds</h3>
+      <p class="muted">Credit any account with simulated BTC for pilot testing. Funds are real internal credits, not real BTC.</p>
       <div class="inline-form">
-        <input id="planMachineId" placeholder="machine_id" />
-        <select id="planValue"><option value="stable">stable</option><option value="fast">fast</option></select>
+        <select id="dispenseAccountSelect"></select>
+        <input id="dispenseAmountUsd" type="number" placeholder="USD amount" value="10" style="width:120px" />
+        <button id="dispenseBtn">Dispense</button>
+      </div>
+      <p id="dispenseResult" class="muted"></p>
+
+      <h3>Machine Plans</h3>
+      <div class="inline-form">
+        <input id="planMachineId" placeholder="machine_id" style="width:280px" />
+        <select id="planValue"><option value="fast">fast</option><option value="stable">stable</option></select>
         <button id="setPlanBtn">Set Plan</button>
       </div>
       <p id="setPlanResult" class="muted"></p>
-      <table><thead><tr><th>Machine</th><th>Plan</th><th>Fee</th><th>Last Burn Cycle</th></tr></thead><tbody id="machinesBody"></tbody></table>
-    </section>
+      <table>
+        <thead><tr><th>Machine ID</th><th>Plan</th><th>Fee/Cycle</th><th>Last Burn Cycle</th></tr></thead>
+        <tbody id="machinesBody"><tr><td colspan="4">No machines</td></tr></tbody>
+      </table>
 
-    <section id="rewards" class="panel">
-      <h2>Rewards</h2>
-      <div id="rewardsSummary" class="grid"></div>
-      <h3>Recent Ledger Events</h3>
-      <table><thead><tr><th>Type</th><th>Bucket</th><th>Amount</th><th>Cycle</th></tr></thead><tbody id="ledgerBody"></tbody></table>
-    </section>
-
-    <section id="contributions" class="panel">
-      <h2>Contributions</h2>
+      <h3>Account Controls</h3>
       <div class="inline-form">
-        <input id="contribAccount" placeholder="account_id" />
-        <input id="contribHash" placeholder="submission_hash" />
-        <input id="contribTitle" placeholder="title" />
-        <select id="contribClass"><option value="preset">preset</option><option value="security">security</option><option value="driver">driver</option><option value="reliability">reliability</option></select>
-        <button id="createContribBtn">Create Submission</button>
+        <select id="controlAccountSelect"></select>
+        <select id="controlMode">
+          <option value="normal">normal</option>
+          <option value="slow">slow</option>
+          <option value="blocked">blocked</option>
+        </select>
+        <input id="controlReason" placeholder="reason" style="width:180px" />
+        <button id="setControlBtn">Set Control</button>
       </div>
-      <p id="createContribResult" class="muted"></p>
-      <table><thead><tr><th>Hash</th><th>Class</th><th>State</th><th>Verdict</th></tr></thead><tbody id="contribBody"></tbody></table>
+      <p id="setControlResult" class="muted"></p>
+
+      <h3>Ledger (recent)</h3>
+      <table>
+        <thead><tr><th>Event Type</th><th>Bucket</th><th>Amount</th><th>Cycle</th></tr></thead>
+        <tbody id="ledgerBody"><tr><td colspan="4">No ledger entries</td></tr></tbody>
+      </table>
     </section>
 
-    <section id="governance" class="panel">
-      <h2>Governance / Appeals</h2>
-      <div class="inline-form">
-        <input id="appealSubmissionId" placeholder="submission_id" />
-        <input id="appealAccountId" placeholder="opened_by_account_id" />
-        <input id="appealReason" placeholder="reason" />
-        <button id="openAppealBtn">Open Appeal</button>
-      </div>
-      <p id="openAppealResult" class="muted"></p>
-      <table><thead><tr><th>Appeal</th><th>Submission</th><th>State</th><th>Deadline</th></tr></thead><tbody id="appealsBody"></tbody></table>
-    </section>
   </main>
 
   <script src="./app.js"></script>

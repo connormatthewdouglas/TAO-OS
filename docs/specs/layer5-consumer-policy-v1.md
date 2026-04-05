@@ -1,6 +1,11 @@
 # Layer 5 Consumer Policy v1 (Day 6 Freeze)
 
-Status: FROZEN v1
+> **PARTIALLY SUPERSEDED** — The Stable/Fast plan distinction and billing semantics are still correct.
+> The fee model is wrong: v1 uses 5 internal credits; v3.1 uses `F_fast = $2.00 USD` settled in BTC.
+> **Current reference:** `docs/specs/layer5-economics-v3.1.md` (Pricing section).
+> Kept as historical record only.
+
+Status: FROZEN v1 — FEE MODEL SUPERSEDED BY v3.1
 Date: 2026-04-02
 Owner: Copper Sage
 

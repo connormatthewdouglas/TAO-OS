@@ -128,22 +128,36 @@ Each benchmark is also runnable standalone:
 
 ---
 
+## Layer 5 — Economics (Live, Pilot Phase)
+
+The incentive layer is built and in supervised pilot. See [`white-paper.md`](white-paper.md) and [`docs/specs/layer5-economics-v3.1.md`](docs/specs/layer5-economics-v3.1.md) for the full spec.
+
+**How it works:**
+- Fast users pay `$2.00/month` per machine (settled in BTC at payment time)
+- Every payment splits: **60% → payout pot** (distributed each cycle by validator vote) / **40% → pool principal** (locked forever, earns Babylon yield)
+- Validators pay Fast user fee, get refunded at cycle close (net zero cost), and get 100 vote points to distribute across accepted contributions
+- Contributors earn from two streams: payout pot share (vote-weighted, resets each cycle) + yield royalty (proportional to lifetime votes, permanent and append-only)
+- No contributor stakes or slashes — reputation cooldowns replace financial punishment
+
+**Current status:** supervised pilot. No real BTC yet. Public launch after mechanics are validated.
+
+---
+
 ## Roadmap
 
 - **Done** → Intel Arc inference stack (one-script setup)
-- **Done** → Preset stack v0.5 (14 tweaks, fully reversible)
-- **Done** → Network benchmark: +127% confirmed (BBR + 16MB buffers)
-- **Done** → Cold-start inference benchmark: -22ms confirmed (GPU freq lock)
-- **Done** → Full-test wrapper v1.2 (CursiveRoot auto-submit, zero setup)
-- **Done** → Preset stack v0.6 (18 tweaks, --dry-run support)
+- **Done** → Preset stack v0.8-locked (28 tweaks, fully reversible)
+- **Done** → Network: ~1 Gbit/s validated across 3 rigs (+454–616%)
+- **Done** → Cold-start latency: -2.3% to -29% validated across 3 rigs
+- **Done** → Full-test wrapper v1.4 (CursiveRoot auto-submit, zero setup)
 - **Done** → CursiveRoot: live hardware database, auto-submit from any machine
-- **Done** → Preset stack v0.7 (25 tweaks: +7 research-backed additions)
-- **Done** → v0.7 validated: ~1 Gbit/s network on Arc A750 + RX 580 confirmed
-- **Next** → Run v0.7 on remaining fleet (laptops, all-in-one, friends' PCs)
-- **Next** → Intel Arc SYCL backend: stable 7B+ inference
-- **v1.5** → Trusted external fleet (5+ miners, documented gains, clean safety record)
-- **v2.0** → One-click pre-tuned ISO + auto-updates for miners/validators
-- **v3.0+** → Full self-improving subnet (AI generates + validates tweaks, emissions for best configs)
+- **Done** → Layer 5 backend: session auth, identity rail, cycle runner, rewards ledger
+- **Done** → Layer 5 economics v3.1: BTC base, 60/40 split, Babylon yield, democratic vote
+- **Done** → Hub dashboard: 7-tab interface for pool, cycles, votes, contributors, admin
+- **Pilot** → Supervised external pilot (Frosty cohort) — mechanics validation with fake BTC
+- **Next** → Fund pool with real BTC, open to public
+- **Next** → AI optimization loop: train on CursiveRoot to generate hardware-specific presets
+- **Later** → Turnkey distribution (installer/ISO/custom kernel path)
 
 ---
 

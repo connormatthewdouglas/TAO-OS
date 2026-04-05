@@ -1,6 +1,11 @@
 # Layer 5 Architecture v1 (Day 2 Draft)
 
-Status: DRAFT v1
+> **SUPERSEDED** — This document reflects v1.1 service decomposition (Validator Rewards with streak/rarity/quality,
+> Contributor Incentive with stake lock/slash, pool_floor enforcement). All of this has been replaced in v3.1.
+> **Current reference:** `docs/specs/layer5-economics-v3.1.md` and `white-paper.md` (Section 4 — Layer 5).
+> Kept as historical record only.
+
+Status: DRAFT v1 — SUPERSEDED BY v3.1
 Date: 2026-04-02
 Owner: Copper Sage
 

@@ -1023,6 +1023,396 @@ app.get('/hub/session/bootstrap', async (_req, res) => {
   }
 });
 
+// ─── v3.1 helpers ────────────────────────────────────────────────────────────
+
+async function ensurePoolStateTable() {
+  await sql(`create table if not exists l5_pool_state_v31 (
+    id serial primary key,
+    cycle_id integer not null unique,
+    fast_user_count integer not null default 0,
+    fast_revenue_usd numeric(18,8) not null default 0,
+    fast_revenue_btc numeric(18,8) not null default 0,
+    btc_price_usd numeric(12,2) not null default 85000,
+    payout_pot_btc numeric(18,8) not null default 0,
+    pool_inflow_btc numeric(18,8) not null default 0,
+    pool_principal_btc numeric(18,8) not null default 0,
+    cycle_yield_btc numeric(18,8) not null default 0,
+    status text not null default 'open',
+    created_at timestamptz not null default now(),
+    closed_at timestamptz
+  );`);
+}
+
+async function ensureContributionVotesTable() {
+  await sql(`create table if not exists l5_contribution_votes_v31 (
+    vote_id uuid primary key default gen_random_uuid(),
+    cycle_id integer not null,
+    voter_account_id uuid not null references l5_accounts(account_id) on delete cascade,
+    submission_id uuid not null,
+    points numeric(10,4) not null default 0,
+    created_at timestamptz not null default now(),
+    unique(cycle_id, voter_account_id, submission_id)
+  );`);
+}
+
+async function ensureLifetimeVotesTable() {
+  await sql(`create table if not exists l5_lifetime_votes_v31 (
+    account_id uuid primary key references l5_accounts(account_id) on delete cascade,
+    lifetime_votes numeric(18,4) not null default 0,
+    total_payout_btc numeric(18,8) not null default 0,
+    total_royalty_btc numeric(18,8) not null default 0,
+    cooldown_remaining integer not null default 0,
+    consecutive_low_vote_cycles integer not null default 0,
+    updated_at timestamptz not null default now()
+  );`);
+}
+
+// ─── v3.1 pool state ─────────────────────────────────────────────────────────
+
+app.get('/hub/pool/state', async (req, res) => {
+  try {
+    await ensurePoolStateTable();
+    const rows = await sql(`select * from l5_pool_state_v31 order by cycle_id desc limit 1;`);
+    const current = rows[0] || null;
+    const total_principal = current?.pool_principal_btc ?? 0;
+    const F_FAST_USD = Number(process.env.F_FAST_USD || 2.00);
+    const BTC_PRICE = Number(process.env.BTC_PRICE_USD || 85000);
+    const STAKING_FRACTION = 0.50;
+    const BABYLON_GROSS_YIELD = 0.065;
+    const CYCLES_PER_YEAR = 12;
+    const effective_per_cycle_yield = (BABYLON_GROSS_YIELD * STAKING_FRACTION) / CYCLES_PER_YEAR;
+    res.json({
+      ok: true,
+      current_cycle: current,
+      config: {
+        F_fast_usd: F_FAST_USD,
+        btc_price_usd: BTC_PRICE,
+        payout_pot_fraction: 0.60,
+        pool_fraction: 0.40,
+        babylon_gross_yield: BABYLON_GROSS_YIELD,
+        staking_fraction: STAKING_FRACTION,
+        effective_per_cycle_yield: effective_per_cycle_yield,
+        min_vote_threshold: 0.01,
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// ─── v3.1 cycle runner ───────────────────────────────────────────────────────
+
+app.post('/hub/cycle/run-v31', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+
+    await ensurePoolStateTable();
+    await ensureContributionVotesTable();
+    await ensureLifetimeVotesTable();
+
+    const { cycle_id, fast_user_count = 5, btc_price_usd } = req.body || {};
+    if (!Number.isFinite(Number(cycle_id))) return res.status(400).json({ ok: false, error: 'invalid_cycle_id' });
+
+    const F_FAST_USD = Number(process.env.F_FAST_USD || 2.00);
+    const BTC_PRICE = Number(btc_price_usd || process.env.BTC_PRICE_USD || 85000);
+    const PAYOUT_FRACTION = 0.60;
+    const POOL_FRACTION = 0.40;
+    const STAKING_FRACTION = 0.50;
+    const BABYLON_GROSS = 0.065;
+    const CYCLES_PER_YEAR = 12;
+    const MIN_VOTE_THRESHOLD = 0.01;
+    const LOW_VOTE_COOLDOWN_TRIGGER = 3;
+    const COOLDOWN_CYCLES = 5;
+
+    // Get previous pool principal
+    const prevRows = await sql(`select pool_principal_btc from l5_pool_state_v31
+      where cycle_id < ${Number(cycle_id)} order by cycle_id desc limit 1;`);
+    const prevPrincipal = Number(prevRows[0]?.pool_principal_btc || 0);
+
+    // Revenue
+    const fast_revenue_usd = Number(fast_user_count) * F_FAST_USD;
+    const fast_revenue_btc = fast_revenue_usd / BTC_PRICE;
+    const payout_pot_btc = fast_revenue_btc * PAYOUT_FRACTION;
+    const pool_inflow_btc = fast_revenue_btc * POOL_FRACTION;
+    const pool_principal_btc = prevPrincipal + pool_inflow_btc;
+
+    // Babylon yield on new principal
+    const effective_yield = (BABYLON_GROSS * STAKING_FRACTION) / CYCLES_PER_YEAR;
+    const cycle_yield_btc = pool_principal_btc * effective_yield;
+
+    // Write pool state
+    await sql(`insert into l5_pool_state_v31
+      (cycle_id, fast_user_count, fast_revenue_usd, fast_revenue_btc, btc_price_usd,
+       payout_pot_btc, pool_inflow_btc, pool_principal_btc, cycle_yield_btc, status)
+      values (${Number(cycle_id)}, ${Number(fast_user_count)},
+              ${fast_revenue_usd}, ${fast_revenue_btc.toFixed(8)}, ${BTC_PRICE},
+              ${payout_pot_btc.toFixed(8)}, ${pool_inflow_btc.toFixed(8)},
+              ${pool_principal_btc.toFixed(8)}, ${cycle_yield_btc.toFixed(8)}, 'open')
+      on conflict (cycle_id) do update
+        set fast_user_count=${Number(fast_user_count)},
+            fast_revenue_usd=${fast_revenue_usd},
+            fast_revenue_btc=${fast_revenue_btc.toFixed(8)},
+            btc_price_usd=${BTC_PRICE},
+            payout_pot_btc=${payout_pot_btc.toFixed(8)},
+            pool_inflow_btc=${pool_inflow_btc.toFixed(8)},
+            pool_principal_btc=${pool_principal_btc.toFixed(8)},
+            cycle_yield_btc=${cycle_yield_btc.toFixed(8)},
+            status='open';`);
+
+    await logAction({ action: 'cycle_run_v31', actorAccountId: actorId, req, details: { cycle_id, fast_user_count, fast_revenue_usd } });
+    res.json({
+      ok: true,
+      cycle_id: Number(cycle_id),
+      fast_revenue_usd: fast_revenue_usd.toFixed(4),
+      fast_revenue_btc: fast_revenue_btc.toFixed(8),
+      payout_pot_btc: payout_pot_btc.toFixed(8),
+      payout_pot_usd: (payout_pot_btc * BTC_PRICE).toFixed(4),
+      pool_inflow_btc: pool_inflow_btc.toFixed(8),
+      pool_principal_btc: pool_principal_btc.toFixed(8),
+      pool_principal_usd: (pool_principal_btc * BTC_PRICE).toFixed(4),
+      cycle_yield_btc: cycle_yield_btc.toFixed(8),
+      cycle_yield_usd: (cycle_yield_btc * BTC_PRICE).toFixed(6),
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// ─── contribution voting ──────────────────────────────────────────────────────
+
+// POST: validator submits their 100-point allocation for a cycle
+// body: { cycle_id, allocations: [{ submission_id, points }, ...] }
+// total points must sum to ≤ 100
+app.post('/hub/contributions/votes', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canVote(role)) return res.status(403).json({ ok: false, error: 'forbidden_validator_only' });
+
+    await ensureContributionVotesTable();
+
+    const { cycle_id, allocations } = req.body || {};
+    if (!Number.isFinite(Number(cycle_id))) return res.status(400).json({ ok: false, error: 'invalid_cycle_id' });
+    if (!Array.isArray(allocations) || allocations.length === 0) return res.status(400).json({ ok: false, error: 'missing_allocations' });
+
+    const VALIDATOR_POINTS = 100;
+    const totalPoints = allocations.reduce((s, a) => s + Number(a.points || 0), 0);
+    if (totalPoints > VALIDATOR_POINTS + 0.001) {
+      return res.status(400).json({ ok: false, error: 'exceeds_vote_budget', max: VALIDATOR_POINTS, submitted: totalPoints });
+    }
+
+    // Delete existing votes from this validator for this cycle, then re-insert
+    await sql(`delete from l5_contribution_votes_v31
+      where cycle_id=${Number(cycle_id)} and voter_account_id='${esc(actorId)}';`);
+
+    for (const alloc of allocations) {
+      const pts = Number(alloc.points || 0);
+      if (pts <= 0) continue;
+      await sql(`insert into l5_contribution_votes_v31 (cycle_id, voter_account_id, submission_id, points)
+        values (${Number(cycle_id)}, '${esc(actorId)}', '${esc(String(alloc.submission_id))}', ${pts});`);
+    }
+
+    await logAction({ action: 'contribution_vote_submit', actorAccountId: actorId, req, details: { cycle_id, allocations_count: allocations.length, total_points: totalPoints } });
+    res.json({ ok: true, cycle_id: Number(cycle_id), total_points_used: totalPoints });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// GET: view aggregated vote totals for a cycle
+app.get('/hub/contributions/votes', async (req, res) => {
+  try {
+    await ensureContributionVotesTable();
+    const cycle_id = req.query.cycle_id;
+    if (!cycle_id) return res.status(400).json({ ok: false, error: 'missing_cycle_id' });
+
+    const rows = await sql(`select submission_id, sum(points) as total_points, count(distinct voter_account_id) as voter_count
+      from l5_contribution_votes_v31 where cycle_id=${Number(cycle_id)}
+      group by submission_id order by total_points desc;`);
+    const totalVotes = rows.reduce((s, r) => s + Number(r.total_points), 0);
+    const result = rows.map(r => ({
+      ...r,
+      total_points: Number(r.total_points),
+      vote_share_pct: totalVotes > 0 ? ((Number(r.total_points) / totalVotes) * 100).toFixed(2) : '0.00',
+    }));
+    res.json({ ok: true, cycle_id: Number(cycle_id), total_votes: totalVotes, data: result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// POST: close a cycle — distribute payout pot + yield royalties, update lifetime votes
+app.post('/hub/cycle/close-v31', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+
+    await ensurePoolStateTable();
+    await ensureContributionVotesTable();
+    await ensureLifetimeVotesTable();
+
+    const { cycle_id } = req.body || {};
+    if (!Number.isFinite(Number(cycle_id))) return res.status(400).json({ ok: false, error: 'invalid_cycle_id' });
+
+    const poolRows = await sql(`select * from l5_pool_state_v31 where cycle_id=${Number(cycle_id)} limit 1;`);
+    if (!poolRows[0]) return res.status(404).json({ ok: false, error: 'cycle_not_found' });
+    const pool = poolRows[0];
+    if (pool.status === 'closed') return res.status(409).json({ ok: false, error: 'cycle_already_closed' });
+
+    const voteRows = await sql(`select submission_id, sum(points) as total_points
+      from l5_contribution_votes_v31 where cycle_id=${Number(cycle_id)}
+      group by submission_id;`);
+    const totalCycleVotes = voteRows.reduce((s, r) => s + Number(r.total_points), 0);
+    const MIN_VOTE_THRESHOLD = 0.01;
+
+    // Qualifying submissions (≥1% threshold)
+    const qualifying = voteRows.filter(r =>
+      totalCycleVotes > 0 && (Number(r.total_points) / totalCycleVotes) >= MIN_VOTE_THRESHOLD
+    );
+
+    // Map submission_id → account_id
+    const subIds = qualifying.map(r => `'${esc(r.submission_id)}'`).join(',');
+    let subAccounts = [];
+    if (subIds.length > 0) {
+      subAccounts = await sql(`select submission_id, account_id from l5_contributor_submissions where submission_id in (${subIds});`);
+    }
+    const subAccountMap = Object.fromEntries(subAccounts.map(s => [s.submission_id, s.account_id]));
+
+    // Get current global lifetime votes
+    const lifetimeRows = await sql(`select account_id, lifetime_votes from l5_lifetime_votes_v31;`);
+    const lifetimeMap = Object.fromEntries(lifetimeRows.map(r => [r.account_id, Number(r.lifetime_votes)]));
+
+    // Apply this cycle's votes to lifetime ledger first
+    for (const row of qualifying) {
+      const accountId = subAccountMap[row.submission_id];
+      if (!accountId) continue;
+      lifetimeMap[accountId] = (lifetimeMap[accountId] || 0) + Number(row.total_points);
+    }
+    const allLifetimeVotes = Object.values(lifetimeMap).reduce((s, v) => s + v, 0);
+
+    const payouts = [];
+    const BTC_PRICE = Number(pool.btc_price_usd);
+    const payout_pot = Number(pool.payout_pot_btc);
+    const cycle_yield = Number(pool.cycle_yield_btc);
+
+    for (const row of qualifying) {
+      const accountId = subAccountMap[row.submission_id];
+      if (!accountId) continue;
+      const voteShare = Number(row.total_points) / totalCycleVotes;
+      const payout_btc = voteShare * payout_pot;
+      const lifetime_share = allLifetimeVotes > 0 ? (lifetimeMap[accountId] || 0) / allLifetimeVotes : 0;
+      const royalty_btc = lifetime_share * cycle_yield;
+
+      // Upsert lifetime votes
+      await sql(`insert into l5_lifetime_votes_v31 (account_id, lifetime_votes, total_payout_btc, total_royalty_btc, updated_at)
+        values ('${esc(accountId)}', ${(lifetimeMap[accountId] || 0).toFixed(4)},
+                ${payout_btc.toFixed(8)}, ${royalty_btc.toFixed(8)}, now())
+        on conflict (account_id) do update
+          set lifetime_votes=${(lifetimeMap[accountId] || 0).toFixed(4)},
+              total_payout_btc=l5_lifetime_votes_v31.total_payout_btc+${payout_btc.toFixed(8)},
+              total_royalty_btc=l5_lifetime_votes_v31.total_royalty_btc+${royalty_btc.toFixed(8)},
+              updated_at=now();`);
+
+      payouts.push({
+        account_id: accountId,
+        submission_id: row.submission_id,
+        cycle_votes: Number(row.total_points),
+        vote_share_pct: (voteShare * 100).toFixed(2),
+        payout_btc: payout_btc.toFixed(8),
+        payout_usd: (payout_btc * BTC_PRICE).toFixed(4),
+        royalty_btc: royalty_btc.toFixed(8),
+        royalty_usd: (royalty_btc * BTC_PRICE).toFixed(6),
+        lifetime_votes_after: (lifetimeMap[accountId] || 0).toFixed(4),
+      });
+    }
+
+    // Mark cycle closed
+    await sql(`update l5_pool_state_v31 set status='closed', closed_at=now() where cycle_id=${Number(cycle_id)};`);
+    await logAction({ action: 'cycle_close_v31', actorAccountId: actorId, req, details: { cycle_id, qualifying_submissions: qualifying.length, total_cycle_votes: totalCycleVotes } });
+
+    res.json({
+      ok: true,
+      cycle_id: Number(cycle_id),
+      total_cycle_votes: totalCycleVotes,
+      qualifying_submissions: qualifying.length,
+      payout_pot_btc: payout_pot.toFixed(8),
+      cycle_yield_btc: cycle_yield.toFixed(8),
+      all_lifetime_votes_after: allLifetimeVotes.toFixed(4),
+      payouts,
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// ─── lifetime votes ledger ────────────────────────────────────────────────────
+
+app.get('/hub/contributors/lifetime-votes', async (req, res) => {
+  try {
+    await ensureLifetimeVotesTable();
+    const accountId = req.authAccountId;
+    const role = await getAccountRole(accountId);
+    const where = canAdmin(role) ? '' : `where account_id='${esc(accountId)}'`;
+    const rows = await sql(`select account_id, lifetime_votes, total_payout_btc, total_royalty_btc, cooldown_remaining, updated_at
+      from l5_lifetime_votes_v31 ${where} order by lifetime_votes desc limit 200;`);
+    const allLifetime = rows.reduce((s, r) => s + Number(r.lifetime_votes), 0);
+    const BTC_PRICE = Number(process.env.BTC_PRICE_USD || 85000);
+    res.json({
+      ok: true,
+      all_lifetime_votes: allLifetime.toFixed(4),
+      data: rows.map(r => ({
+        ...r,
+        lifetime_votes: Number(r.lifetime_votes),
+        lifetime_share_pct: allLifetime > 0 ? ((Number(r.lifetime_votes) / allLifetime) * 100).toFixed(2) : '0.00',
+        total_payout_usd: (Number(r.total_payout_btc) * BTC_PRICE).toFixed(4),
+        total_royalty_usd: (Number(r.total_royalty_btc) * BTC_PRICE).toFixed(6),
+      }))
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// ─── admin: dispense test funds ───────────────────────────────────────────────
+
+// In test mode, admin can credit any account with fake BTC (stored in credit ledger as test_btc)
+app.post('/hub/admin/dispense', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+
+    const { account_id, amount_usd, note } = req.body || {};
+    if (!account_id || !Number.isFinite(Number(amount_usd)) || Number(amount_usd) <= 0) {
+      return res.status(400).json({ ok: false, error: 'missing_or_invalid_fields' });
+    }
+
+    const BTC_PRICE = Number(process.env.BTC_PRICE_USD || 85000);
+    const amount_btc = Number(amount_usd) / BTC_PRICE;
+    const ikey = `dispense_${actorId}_${account_id}_${Date.now()}`;
+
+    await sql(`insert into l5_credit_ledger
+      (event_type, bucket, amount, cycle_id, idempotency_key, source_account_id, target_account_id)
+      values ('test_dispense', 'test_btc', ${amount_btc.toFixed(8)}, 0, '${esc(ikey)}', '${esc(actorId)}', '${esc(account_id)}');`);
+
+    await logAction({ action: 'admin_dispense', actorAccountId: actorId, req, details: { account_id, amount_usd, amount_btc: amount_btc.toFixed(8), note: note || null } });
+    res.json({
+      ok: true,
+      account_id,
+      dispensed_usd: Number(amount_usd).toFixed(2),
+      dispensed_btc: amount_btc.toFixed(8),
+      btc_price_used: BTC_PRICE,
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 app.listen(PORT, () => {
   console.log(`hub-api listening on :${PORT}`);
 });

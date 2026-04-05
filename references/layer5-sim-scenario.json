@@ -1,0 +1,29 @@
+{
+  "seed": 42,
+  "cycles": 12,
+  "pool_principal_open": 0.0,
+
+  "params": {
+    "F_fast_usd": 2.00,
+    "btc_price_usd": 85000.0,
+    "payout_pot_fraction": 0.60,
+    "pool_fraction": 0.40,
+    "babylon_gross_yield": 0.065,
+    "staking_fraction": 0.50,
+    "cycles_per_year": 12,
+    "validator_vote_points": 100,
+    "min_vote_threshold": 0.01,
+    "low_vote_cooldown_trigger": 3,
+    "cooldown_cycles": 5
+  },
+
+  "fast_user_count": 5,
+  "validator_count": 3,
+  "submissions_per_cycle": 3,
+  "acceptance_rate": 0.70,
+  "contributor_pool_size": 3,
+
+  "contributor_accounts": ["alice", "bob", "carol"],
+
+  "_note": "Frosty pilot baseline: ~5 fast machines, 3 validators, monthly cycles, F_fast=$2. Validates 60/40 split and dual contributor streams at minimum viable scale."
+}
