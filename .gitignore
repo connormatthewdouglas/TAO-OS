@@ -21,3 +21,18 @@ CLAUDE_SESSION.md
 
 # Nested repo copy — should not exist here
 TAO-OS/
+
+# IPEX-LLM / Arc GPU runtime symlinks (local machine only)
+lib*.so
+libollama*
+ollama
+ollama-lib
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Old / superseded simulation tool (v1.1, not updated to v3.1)
+tools/layer5_tokenomics_web.py
+docs/specs/layer5-economics-v1.1.md
