@@ -1075,8 +1075,9 @@ app.get('/hub/pool/state', async (req, res) => {
   try {
     await ensurePoolStateTable();
     const rows = await sql(`select * from l5_pool_state_v31 order by cycle_id desc limit 1;`);
+    const countRows = await sql(`select count(*) as total from l5_pool_state_v31;`);
     const current = rows[0] || null;
-    const total_principal = current?.pool_principal_btc ?? 0;
+    const total_cycles = Number(countRows[0]?.total || 0);
     const F_FAST_USD = Number(process.env.F_FAST_USD || 2.00);
     const BTC_PRICE = Number(process.env.BTC_PRICE_USD || 85000);
     const STAKING_FRACTION = 0.50;
@@ -1086,6 +1087,7 @@ app.get('/hub/pool/state', async (req, res) => {
     res.json({
       ok: true,
       current_cycle: current,
+      total_cycles,
       config: {
         F_fast_usd: F_FAST_USD,
         btc_price_usd: BTC_PRICE,
