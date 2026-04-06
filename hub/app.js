@@ -7,6 +7,7 @@ let ACTIVE_SESSION_TOKEN = null;
 let ACTIVE_WALLET_CHALLENGE = null;
 let ACTIVE_ROLE = null;
 let ALL_ACCOUNTS = [];
+let CURRENT_OPEN_CYCLE_ID = null;
 
 // ── API helpers ──────────────────────────────────────────────────────────────
 
@@ -73,6 +74,10 @@ function friendlyState(state) {
   }[state] || state;
 }
 
+function accountLabel(a) {
+  return `${a.username ? a.username : friendlyRole(a.role)} · ${shortId(a.account_id)}`;
+}
+
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 
 async function establishSession(accountId) {
@@ -90,9 +95,7 @@ async function bootstrapAccount() {
   const boot = await fetch(`${API}/hub/session/bootstrap`).then(r => r.json());
   ALL_ACCOUNTS = boot.accounts || [];
   const sel = document.getElementById('accountSelect');
-  sel.innerHTML = ALL_ACCOUNTS.map(a =>
-    `<option value="${a.account_id}">${friendlyRole(a.role)} · ${shortId(a.account_id)}</option>`
-  ).join('');
+  sel.innerHTML = ALL_ACCOUNTS.map(a => `<option value="${a.account_id}">${accountLabel(a)}</option>`).join('');
   ACTIVE_ACCOUNT_ID = boot.suggested_account_id || ALL_ACCOUNTS[0]?.account_id || null;
   ACTIVE_ROLE = ALL_ACCOUNTS.find(a => a.account_id === ACTIVE_ACCOUNT_ID)?.role || null;
   if (ACTIVE_ACCOUNT_ID) sel.value = ACTIVE_ACCOUNT_ID;
@@ -108,11 +111,11 @@ async function bootstrapAccount() {
 }
 
 function populateAccountSelects() {
-  ['dispenseAccountSelect', 'controlAccountSelect'].forEach(id => {
+  ['dispenseAccountSelect', 'controlAccountSelect', 'deleteAccountSelect'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.innerHTML = ALL_ACCOUNTS.map(a =>
-      `<option value="${a.account_id}">${friendlyRole(a.role)} · ${shortId(a.account_id)}</option>`
+      `<option value="${a.account_id}">${accountLabel(a)}</option>`
     ).join('');
   });
 }
@@ -162,6 +165,7 @@ async function loadPoolState() {
     ]);
     const cur = s.current_cycle;
     const cfg = s.config || {};
+    if (cur?.status === 'open') CURRENT_OPEN_CYCLE_ID = cur.cycle_id;
     const bp = cur?.btc_price_usd || cfg.btc_price_usd || 85000;
 
     document.getElementById('cycleCard').textContent = cur
@@ -295,8 +299,9 @@ async function loadLifetimeVotes() {
     const lv = await jget('/hub/contributors/lifetime-votes');
     document.getElementById('allLifetimeVotesDisplay').textContent =
       `Total lifetime votes across all contributors: ${Number(lv.all_lifetime_votes || 0).toFixed(2)}`;
+    const acctMap = Object.fromEntries(ALL_ACCOUNTS.map(a => [a.account_id, a.username || friendlyRole(a.role)]));
     rows('lifetimeVotesBody', lv.data, r => `<tr>
-      <td title="${r.account_id}">${shortId(r.account_id)}</td>
+      <td title="${r.account_id}">${acctMap[r.account_id] || shortId(r.account_id)}</td>
       <td>${Number(r.lifetime_votes).toFixed(2)}</td>
       <td>${r.lifetime_share_pct}%</td>
       <td>${Number(r.total_payout_btc || 0).toFixed(8)}</td>
@@ -470,6 +475,26 @@ document.getElementById('createContribBtn').addEventListener('click', async () =
 
 // ── Identity ──────────────────────────────────────────────────────────────────
 
+document.getElementById('setUsernameBtn').addEventListener('click', async () => {
+  try {
+    const username = document.getElementById('usernameInput').value.trim();
+    if (!username) { setResult('setUsernameResult', 'Enter a name first.', false); return; }
+    const r = await jpost('/hub/accounts/username', { username });
+    if (r.ok) {
+      setResult('setUsernameResult', `Name set to "${r.username}". Reload to see it in the account switcher.`, true);
+      // Update local account list so selector reflects it immediately
+      const a = ALL_ACCOUNTS.find(x => x.account_id === ACTIVE_ACCOUNT_ID);
+      if (a) a.username = r.username;
+      const sel = document.getElementById('accountSelect');
+      sel.innerHTML = ALL_ACCOUNTS.map(a => `<option value="${a.account_id}">${accountLabel(a)}</option>`).join('');
+      sel.value = ACTIVE_ACCOUNT_ID;
+      populateAccountSelects();
+    } else {
+      setResult('setUsernameResult', `Error: ${apiMsg(r)}`, false);
+    }
+  } catch (e) { setResult('setUsernameResult', `Error: ${e.message}`, false); }
+});
+
 document.getElementById('bindWalletBtn').addEventListener('click', async () => {
   try {
     const wallet_address = document.getElementById('walletAddressInput').value.trim();
@@ -519,16 +544,19 @@ document.getElementById('createAccountBtn').addEventListener('click', async () =
       body: JSON.stringify({ role, label })
     }).then(res => res.json());
     if (r.ok) {
+      const name = r.username ? `"${r.username}" (${friendlyRole(r.role)})` : friendlyRole(r.role);
       setResult('createAccountResult',
-        `Account created!\nRole: ${friendlyRole(r.role)}\nYour account ID: ${r.account_id}\n\nCopy this ID and share it with the admin, or select it from the account switcher at the top.`,
+        `Account created! You're now ${name}.\nAccount ID: ${r.account_id}\n\nYou're now selected in the top bar. Share your account ID with the admin if needed.`,
         true);
-      // Refresh account list
+      // Refresh account list and switch to new account
       const boot = await fetch(`${API}/hub/session/bootstrap`).then(res => res.json());
       ALL_ACCOUNTS = boot.accounts || [];
       const sel = document.getElementById('accountSelect');
-      sel.innerHTML = ALL_ACCOUNTS.map(a =>
-        `<option value="${a.account_id}">${friendlyRole(a.role)} · ${shortId(a.account_id)}</option>`
-      ).join('');
+      sel.innerHTML = ALL_ACCOUNTS.map(a => `<option value="${a.account_id}">${accountLabel(a)}</option>`).join('');
+      sel.value = r.account_id;
+      ACTIVE_ACCOUNT_ID = r.account_id;
+      ACTIVE_ROLE = r.role;
+      await establishSession(r.account_id);
       populateAccountSelects();
     } else {
       setResult('createAccountResult', `Could not create account: ${apiMsg(r)}`, false);
@@ -561,6 +589,25 @@ document.getElementById('setPlanBtn').addEventListener('click', async () => {
   } catch (e) { setResult('setPlanResult', `Error: ${e.message}`, false); }
 });
 
+document.getElementById('deleteAccountBtn').addEventListener('click', async () => {
+  try {
+    const account_id = document.getElementById('deleteAccountSelect').value;
+    if (!account_id) return;
+    const label = ALL_ACCOUNTS.find(a => a.account_id === account_id);
+    if (!confirm(`Delete account ${accountLabel(label || { account_id })}? This cannot be undone.`)) return;
+    const r = await jpost('/hub/admin/accounts/delete', { account_id });
+    if (r.ok) {
+      setResult('deleteAccountResult', `Deleted.`, true);
+      ALL_ACCOUNTS = ALL_ACCOUNTS.filter(a => a.account_id !== account_id);
+      const sel = document.getElementById('accountSelect');
+      sel.innerHTML = ALL_ACCOUNTS.map(a => `<option value="${a.account_id}">${accountLabel(a)}</option>`).join('');
+      populateAccountSelects();
+    } else {
+      setResult('deleteAccountResult', `Error: ${apiMsg(r)}`, false);
+    }
+  } catch (e) { setResult('deleteAccountResult', `Error: ${e.message}`, false); }
+});
+
 document.getElementById('setControlBtn').addEventListener('click', async () => {
   try {
     const account_id = document.getElementById('controlAccountSelect').value;
@@ -581,6 +628,21 @@ document.querySelectorAll('#tabs button').forEach(btn => {
     btn.classList.add('active');
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById(btn.dataset.tab).classList.add('active');
+    // Auto-fill cycle ID inputs with current open cycle when switching to Cycle or Vote tabs
+    if (CURRENT_OPEN_CYCLE_ID) {
+      if (btn.dataset.tab === 'cycle') {
+        const inp = document.getElementById('cycleIdInput');
+        if (inp && !inp.value) inp.value = CURRENT_OPEN_CYCLE_ID;
+        const closeInp = document.getElementById('closeCycleIdInput');
+        if (closeInp && !closeInp.value) closeInp.value = CURRENT_OPEN_CYCLE_ID;
+      }
+      if (btn.dataset.tab === 'vote') {
+        const inp = document.getElementById('voteCycleIdInput');
+        if (inp && !inp.value) inp.value = CURRENT_OPEN_CYCLE_ID;
+        const totInp = document.getElementById('voteViewCycleId');
+        if (totInp && !totInp.value) totInp.value = CURRENT_OPEN_CYCLE_ID;
+      }
+    }
   });
 });
 

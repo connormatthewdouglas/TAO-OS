@@ -1019,12 +1019,13 @@ app.get('/hub/admin/runbooks/network-abuse', async (req, res) => {
 
 app.get('/hub/session/bootstrap', async (_req, res) => {
   try {
-    const accounts = await sql(`select account_id, role, status, created_at from l5_accounts order by created_at asc limit 20;`);
+    const accounts = await sql(`select account_id, role, status, username, created_at from l5_accounts order by created_at asc limit 20;`);
     const suggestedAdmin = accounts.find(a => a.role === 'mixed') || null;
     const suggestedOperator = accounts.find(a => ['contributor','validator','consumer'].includes(a.role)) || accounts[0] || null;
     res.json({
       ok: true,
-      suggested_account_id: (suggestedAdmin || suggestedOperator)?.account_id || null,
+      // Default to a non-admin account so new visitors don't land on admin
+      suggested_account_id: (suggestedOperator || suggestedAdmin)?.account_id || null,
       suggested_admin_account_id: suggestedAdmin?.account_id || null,
       suggested_operator_account_id: suggestedOperator?.account_id || null,
       accounts
@@ -1544,11 +1545,48 @@ app.post('/hub/accounts/create', async (req, res) => {
     }
 
     const newId = crypto.randomUUID();
-    await sql(`insert into l5_accounts (account_id, role, status)
-      values ('${esc(newId)}', '${esc(role)}', 'active');`);
+    const username = label ? label.slice(0, 40) : null;
+    await sql(`insert into l5_accounts (account_id, role, status, username)
+      values ('${esc(newId)}', '${esc(role)}', 'active', ${username ? `'${esc(username)}'` : 'null'});`);
 
-    await logAction({ action: 'account_create', actorAccountId: req.authAccountId || null, req, details: { new_account_id: newId, role, label: label || null } });
-    res.json({ ok: true, account_id: newId, role, status: 'active', label: label || null });
+    await logAction({ action: 'account_create', actorAccountId: req.authAccountId || null, req, details: { new_account_id: newId, role, username } });
+    res.json({ ok: true, account_id: newId, role, status: 'active', username: username || null });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// ─── set username ─────────────────────────────────────────────────────────────
+
+app.post('/hub/accounts/username', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const { username } = req.body || {};
+    if (!username || typeof username !== 'string' || !username.trim()) {
+      return res.status(400).json({ ok: false, error: 'missing_username' });
+    }
+    const clean = username.trim().slice(0, 40);
+    await sql(`update l5_accounts set username='${esc(clean)}' where account_id='${esc(actorId)}';`);
+    await logAction({ action: 'username_set', actorAccountId: actorId, req, details: { username: clean } });
+    res.json({ ok: true, username: clean });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
+});
+
+// ─── admin: delete test accounts ──────────────────────────────────────────────
+
+app.post('/hub/admin/accounts/delete', async (req, res) => {
+  try {
+    const actorId = req.authAccountId;
+    const role = await getAccountRole(actorId);
+    if (!canAdmin(role)) return res.status(403).json({ ok: false, error: 'forbidden_admin_only' });
+    const { account_id } = req.body || {};
+    if (!account_id) return res.status(400).json({ ok: false, error: 'missing_account_id' });
+    if (account_id === actorId) return res.status(400).json({ ok: false, error: 'cannot_delete_self' });
+    await sql(`delete from l5_accounts where account_id='${esc(account_id)}';`);
+    await logAction({ action: 'account_delete', actorAccountId: actorId, req, details: { deleted_account_id: account_id } });
+    res.json({ ok: true, deleted: account_id });
   } catch (e) {
     res.status(500).json({ ok: false, error: String(e.message || e) });
   }
@@ -1600,6 +1638,8 @@ async function initDb() {
   await ensurePoolStateTable();
   await ensureContributionVotesTable();
   await ensureLifetimeVotesTable();
+  // Add username column if schema predates it
+  await sql(`alter table if exists l5_accounts add column if not exists username text;`);
 }
 
 initDb()

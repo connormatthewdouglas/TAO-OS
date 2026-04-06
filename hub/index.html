@@ -241,6 +241,16 @@
     <!-- IDENTITY -->
     <section id="identity" class="panel">
       <h2>Identity &amp; Wallet</h2>
+
+      <h3>Your Name</h3>
+      <p class="muted">Set a display name so you appear by name in the account switcher and leaderboards instead of a random ID.</p>
+      <div class="inline-form">
+        <input id="usernameInput" placeholder="your name or handle" style="width:220px" />
+        <button id="setUsernameBtn">Save Name</button>
+      </div>
+      <p id="setUsernameResult" class="muted"></p>
+
+      <hr />
       <p class="muted">Bind and verify your wallet address. EIP-191 signature verification for EVM wallets. Verified wallet required to receive BTC payouts.</p>
       <div class="inline-form">
         <input id="walletAddressInput" placeholder="wallet address" style="width:340px" />
@@ -298,6 +308,14 @@
         <button id="setControlBtn">Set Control</button>
       </div>
       <p id="setControlResult" class="muted"></p>
+
+      <h3>Delete Account</h3>
+      <p class="muted">Remove a test account from the pilot. Cannot delete yourself or accounts with earned balances.</p>
+      <div class="inline-form">
+        <select id="deleteAccountSelect"></select>
+        <button id="deleteAccountBtn" style="background:var(--err,#c0392b);color:#fff">Delete Account</button>
+      </div>
+      <p id="deleteAccountResult" class="muted"></p>
 
       <h3>Ledger (recent)</h3>
       <table>
