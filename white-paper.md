@@ -210,11 +210,27 @@ Each eligible validator distributes 100 points across accepted contributions for
 1. **Determine payout pot distribution** — vote weight determines each contributor's share of the payout pot for that cycle
 2. **Permanently add to contributor's lifetime vote ledger** — once recorded, lifetime votes cannot be removed. They determine yield royalty forever.
 
-A 1% minimum vote threshold applies: a contributor must receive at least 1% of total cycle votes to receive any payout pot share or lifetime vote accrual. This prevents dust payouts and incentivizes quality over volume.
+**The payout formula normalizes by total votes actually cast, not by 100 × validator_count.** A validator who submits only 60 points only adds 60 to the denominator. A validator who submits nothing effectively abstains and does not dilute other validators' votes.
+
+A 1% minimum vote threshold applies: a contributor must receive at least 1% of total votes cast to receive any payout pot share or lifetime vote accrual. This prevents dust payouts and incentivizes quality over volume.
 
 **Rate limiting:** Three consecutive cycles below the 1% threshold triggers a 5-cycle contribution cooldown. This replaces financial punishment (stakes/slashes) with a reputation-based mechanism that doesn't lock out contributors who can't afford to stake.
 
-### 4.5 Pricing (Pilot)
+**Validator duties and refund forfeiture:** A validator receives their F_fast refund at cycle close if and only if they submitted a valid vote allocation for that cycle. Submitting zero votes forfeits the refund — the F_fast stays in the pool and increases that cycle's payout pot. Submitting any non-zero allocation, even partial, satisfies the duty. The refund is binary: participated → refund; didn't → forfeited.
+
+### 4.5 Parameter Governance
+
+Key economic parameters (`F_fast`, payout/pool split, staking fraction) can be changed by validator supermajority vote, with no admin override required.
+
+**Mechanism:** Any validator proposes a parameter change. The proposal is open for 14 days. It passes if: (1) ≥ 50% of active validators vote (quorum), and (2) > 66% of yes+no votes are yes (supermajority, abstains excluded). Changes take effect the next cycle.
+
+**Guardrails:** At most one open proposal per parameter at a time. Failed proposals can't be resubmitted for 3 cycles. Single-vote shifts are capped at ±10 percentage points for ratio parameters, preventing sudden structural changes.
+
+This keeps economic control with the validator body — the people with real skin in the system — without requiring a token, a DAO, or trusted admin discretion.
+
+**Pilot note:** During the Frosty pilot, parameter changes are made directly by the admin. Governance vote enforcement in the API is a post-pilot task.
+
+### 4.6 Pricing (Pilot)
 
 `F_fast = $2.00 USD` per machine per cycle (monthly), settled in BTC at the moment of payment.
 
@@ -226,7 +242,7 @@ At pilot scale (5 fast machines, monthly cycles):
 
 The $2 price reflects current value delivery: the system is in supervised external pilot. Price will be revisited once the contribution pipeline is generating consistent, validated improvements.
 
-### 4.6 Current Status (April 2026)
+### 4.7 Current Status (April 2026)
 
 **Layer 5 backend is pilot-ready.** Implemented:
 - Supabase schema: accounts, cycles, machine entitlements, credit ledger, contributor submissions, governance votes, appeals, wallet identities, action audit log, anomaly log, network lockout controls

@@ -186,9 +186,11 @@ for N in 1 2 3; do
   fi
 done
 
-run_cycle 101 5
-run_cycle 102 8
-run_cycle 103 12
+# Use timestamp-based cycle IDs so re-runs don't collide with prior sim data
+BASE_CYCLE=$(( ($(date +%s) / 10) % 900000 + 100000 ))
+run_cycle $((BASE_CYCLE))   5
+run_cycle $((BASE_CYCLE+1)) 8
+run_cycle $((BASE_CYCLE+2)) 12
 
 # ─── Final report ─────────────────────────────────────────────────────────────
 step "Final: Lifetime vote ledger"

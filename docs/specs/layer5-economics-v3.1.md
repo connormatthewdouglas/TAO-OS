@@ -93,13 +93,14 @@ Each eligible validator distributes **100 points** across accepted contributions
 **Vote allocation rules:**
 - Validators may distribute their 100 points however they choose across accepted submissions
 - Unallocated points are lost (not rolled over)
-- Minimum allocation to any submission that counts: none at the individual validator level — but the aggregated share across all validators must reach 1% of total votes for the contributor to earn
+- **The payout formula normalizes by total votes actually cast, not by 100 × validator_count.** If a validator submits only 60 of their 100 points, only those 60 points enter the denominator. A validator who submits zero points contributes nothing to the denominator — effectively abstaining from that cycle's distribution.
+- Minimum allocation to any submission that counts: none at the individual validator level — but the aggregated share across all validators must reach 1% of total votes cast for the contributor to earn
 
 **Dual purpose of votes:**
 1. Determine payout pot distribution this cycle
 2. Permanently add to contributor's lifetime vote ledger
 
-A 1% minimum vote threshold applies to both uses. A submission receiving less than 1% of total cycle votes receives no payout pot share and no lifetime vote accrual.
+A 1% minimum vote threshold applies to both uses. A submission receiving less than 1% of total cycle votes cast receives no payout pot share and no lifetime vote accrual.
 
 ---
 
@@ -136,12 +137,52 @@ The yield is not immediately distributed. Each cycle, the yield earned is divide
 
 ---
 
+## Validator Duties and Refund Forfeiture
+
+A validator receives a full `F_fast` refund at cycle close if — and only if — they submit a valid vote allocation for that cycle.
+
+**Failed validator:** A validator who submits zero vote allocations for a given cycle has failed to complete their validation duties. Their `F_fast` for that cycle is not refunded; it stays in the pool and increases the payout pot available to contributors.
+
+**Partial submission:** Submitting any non-zero allocation — even a single point to a single submission — satisfies the duty requirement. The validator does not need to spend all 100 points. The refund is binary: either they participated (refund issued) or they didn't (refund forfeited).
+
+**Pilot enforcement:** During the supervised Frosty pilot, refund forfeiture is tracked manually by the admin. Automated enforcement in `close-v31` is a post-pilot task.
+
+---
+
+## Parameter Governance
+
+The following parameters can be changed by validator supermajority vote:
+
+| Parameter | Default | Constraint |
+|-----------|---------|------------|
+| `F_fast` (USD) | $2.00 | > $0 |
+| `payout_pot_fraction` | 0.60 | 0 < x < 1; `pool_fraction = 1 − x` automatically |
+| `staking_fraction` | 0.50 | 0 ≤ x ≤ 1 |
+
+**How a governance vote works:**
+
+1. Any validator submits a governance proposal via `POST /hub/governance/votes` with the parameter name, proposed value, and rationale.
+2. The proposal is open for voting for **14 days** (approximately half a cycle).
+3. All validators cast yes / no / abstain.
+4. **Passes if:** votes cast ≥ 50% of active validators (quorum), AND yes votes > 66% of yes+no votes (supermajority, excluding abstains).
+5. If passed, the new value takes effect starting the **next cycle** after the vote closes.
+
+**Rate limits:**
+- At most one open governance proposal per parameter at a time.
+- A failed proposal cannot be resubmitted for 3 cycles.
+- The 60/40 split (and staking fraction) can change by at most 10 percentage points per governance vote to prevent sudden large shifts.
+
+**Who can propose:** Any validator (not just admins).
+
+**Pilot note:** During the Frosty pilot, parameter changes are made directly by the admin. The governance vote mechanism is post-pilot.
+
+---
+
 ## Open Items (pre-public launch)
 
-1. **Governance of parameter changes** — how `F_fast`, staking fraction, and split ratios can be changed by validator vote over time is not yet specified
-2. **Partial validator vote allocation** — if a validator doesn't distribute all 100 points, the formula normalizes by total votes cast (not 100 × validator_count). The doc should state this explicitly.
-3. **Babylon integration** — in the pilot, yield is simulated. Real Babylon staking is post-pilot.
-4. **Failed validator definition** — exact criteria for what constitutes failing to complete validation duties need to be codified in the Hub API
+1. **Babylon integration** — in the pilot, yield is simulated. Real Babylon staking is post-pilot.
+2. **Automated validator refund forfeiture in `close-v31`** — currently tracked manually by admin during pilot.
+3. **Governance vote enforcement in Hub API** — quorum check, proposal windows, and parameter update writes are post-pilot.
 
 ---
 

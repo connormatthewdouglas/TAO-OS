@@ -28,6 +28,7 @@ const HUB_IP_REPUTATION_DENYLIST = (process.env.HUB_IP_REPUTATION_DENYLIST || ''
 const HUB_IP_REPUTATION_WATCHLIST = (process.env.HUB_IP_REPUTATION_WATCHLIST || '').split(',').map(s => s.trim()).filter(Boolean);
 
 const rateWindowMs = 60 * 1000;
+const _ensured = new Set();
 const rateBuckets = new Map();
 const networkStrikeBuckets = new Map();
 
@@ -108,6 +109,7 @@ function enforceRateLimit(req, res, next) {
 }
 
 async function ensureSessionTable() {
+  if (_ensured.has('session')) return; _ensured.add('session');
   await sql(`create table if not exists l5_auth_sessions (
     session_token text primary key,
     account_id uuid not null references l5_accounts(account_id) on delete cascade,
@@ -122,6 +124,7 @@ async function ensureSessionTable() {
 }
 
 async function ensureActionLogTable() {
+  if (_ensured.has('actionlog')) return; _ensured.add('actionlog');
   await sql(`create table if not exists l5_hub_action_log (
     log_id bigserial primary key,
     action text not null,
@@ -137,6 +140,7 @@ async function ensureActionLogTable() {
 }
 
 async function ensureAccountControlTable() {
+  if (_ensured.has('acctcontrol')) return; _ensured.add('acctcontrol');
   await sql(`create table if not exists l5_account_controls (
     account_id uuid primary key references l5_accounts(account_id) on delete cascade,
     control_mode text not null default 'normal',
@@ -147,6 +151,7 @@ async function ensureAccountControlTable() {
 }
 
 async function ensureAnomalyTable() {
+  if (_ensured.has('anomaly')) return; _ensured.add('anomaly');
   await sql(`create table if not exists l5_hub_anomaly_events (
     anomaly_id bigserial primary key,
     account_id uuid,
@@ -162,6 +167,7 @@ async function ensureAnomalyTable() {
 }
 
 async function ensureNetworkLockoutTable() {
+  if (_ensured.has('netlockout')) return; _ensured.add('netlockout');
   await sql(`create table if not exists l5_hub_network_lockouts (
     lockout_key text primary key,
     lockout_until timestamptz not null,
@@ -419,6 +425,7 @@ async function getWalletIdentity(accountId) {
 }
 
 async function ensureWalletTable() {
+  if (_ensured.has('wallet')) return; _ensured.add('wallet');
   await sql(`create table if not exists l5_wallet_identities (
     account_id uuid primary key references l5_accounts(account_id) on delete cascade,
     wallet_address text not null,
@@ -1030,6 +1037,7 @@ app.get('/hub/session/bootstrap', async (_req, res) => {
 // ─── v3.1 helpers ────────────────────────────────────────────────────────────
 
 async function ensurePoolStateTable() {
+  if (_ensured.has('poolstate')) return; _ensured.add('poolstate');
   await sql(`create table if not exists l5_pool_state_v31 (
     id serial primary key,
     cycle_id integer not null unique,
@@ -1048,6 +1056,7 @@ async function ensurePoolStateTable() {
 }
 
 async function ensureContributionVotesTable() {
+  if (_ensured.has('contribvotes')) return; _ensured.add('contribvotes');
   await sql(`create table if not exists l5_contribution_votes_v31 (
     vote_id uuid primary key default gen_random_uuid(),
     cycle_id integer not null,
@@ -1060,6 +1069,7 @@ async function ensureContributionVotesTable() {
 }
 
 async function ensureLifetimeVotesTable() {
+  if (_ensured.has('lifetimevotes')) return; _ensured.add('lifetimevotes');
   await sql(`create table if not exists l5_lifetime_votes_v31 (
     account_id uuid primary key references l5_accounts(account_id) on delete cascade,
     lifetime_votes numeric(18,4) not null default 0,
@@ -1580,6 +1590,18 @@ app.post('/hub/contributions/:submissionId/verdict', async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
-  console.log(`hub-api listening on :${PORT}`);
-});
+async function initDb() {
+  await ensureSessionTable();
+  await ensureActionLogTable();
+  await ensureAccountControlTable();
+  await ensureAnomalyTable();
+  await ensureNetworkLockoutTable();
+  await ensureWalletTable();
+  await ensurePoolStateTable();
+  await ensureContributionVotesTable();
+  await ensureLifetimeVotesTable();
+}
+
+initDb()
+  .then(() => app.listen(PORT, () => console.log(`hub-api listening on :${PORT}`)))
+  .catch(err => { console.error('DB init failed:', err); process.exit(1); });
