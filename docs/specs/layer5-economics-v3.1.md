@@ -1,3 +1,9 @@
+> **DEPRECATED.** This spec describes the v3.1 economic layer (permanent pool, Babylon yield, validator voting, static 60/40 split). It has been superseded by [layer5-economics-v3.3.md](layer5-economics-v3.3.md), which removed the pool, removed Babylon, replaced the static split with a metabolic sensor, and removed voting. This file is preserved for historical record and research on the design journey. Do not build against this spec.
+>
+> See [../CHANGELOG-v2.1.md](../CHANGELOG-v2.1.md) for the full reasoning behind the transition.
+
+---
+
 # Layer 5 Economics — v3.1 (Single Source of Truth)
 **Status:** ACTIVE — supersedes v1.0 and v1.1  
 **Date:** 2026-04-05  
