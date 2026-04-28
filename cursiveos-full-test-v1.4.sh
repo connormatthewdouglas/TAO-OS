@@ -81,6 +81,34 @@ if ! command -v ollama &>/dev/null; then
 fi
 SKIP_INFERENCE=${SKIP_INFERENCE:-0}
 
+ensure_ollama_ready() {
+    [[ "$SKIP_INFERENCE" == "1" ]] && return 0
+    command -v ollama >/dev/null 2>&1 || { SKIP_INFERENCE=1; return 0; }
+
+    if ollama list >/dev/null 2>&1; then
+        return 0
+    fi
+
+    echo "Ollama is installed but not running. Starting it..."
+    if command -v systemctl >/dev/null 2>&1; then
+        echo "$TAO_SUDO_PASS" | sudo -S systemctl start ollama >/dev/null 2>&1 || true
+        sleep 3
+    fi
+
+    if ! ollama list >/dev/null 2>&1; then
+        echo "  → system service unavailable; trying local ollama serve..."
+        nohup ollama serve > "$LOG_DIR/ollama-serve-$(date +%Y%m%d-%H%M%S).log" 2>&1 &
+        sleep 5
+    fi
+
+    if ! ollama list >/dev/null 2>&1; then
+        echo "  → Ollama did not become ready; inference benchmarks will be skipped."
+        SKIP_INFERENCE=1
+    else
+        echo "  → Ollama is ready."
+    fi
+}
+
 # Core runtime dependencies (single install prompt to avoid repeated sudo approvals)
 MISSING_DEPS=()
 for dep in jq bc iperf3; do
@@ -104,9 +132,14 @@ for dep in jq bc iperf3; do
     fi
 done
 
-if ! ollama list 2>/dev/null | grep -q "$MODEL"; then
+ensure_ollama_ready
+
+if [[ "$SKIP_INFERENCE" != "1" ]] && ! ollama list 2>/dev/null | grep -q "$MODEL"; then
     echo "Pulling $MODEL..."
-    ollama pull "$MODEL"
+    if ! ollama pull "$MODEL"; then
+        echo "  → Could not pull $MODEL; inference benchmarks will be skipped."
+        SKIP_INFERENCE=1
+    fi
 fi
 
 # ── Model validation ──────────────────────────────────────────────────────────
@@ -463,25 +496,37 @@ echo "  → Network done."
 # ── Benchmark 2: Cold-start latency ──────────────────────────────────────────
 echo ""
 if [[ "$SKIP_INFERENCE" == "1" ]]; then
-    echo "[2/3] Cold-start latency — SKIPPED (ollama not installed)"
+    echo "[2/3] Cold-start latency — SKIPPED (ollama unavailable)"
 else
     echo "[2/3] Cold-start latency benchmark (GPU freq: idle vs pinned)..."
-    bash "$SCRIPT_DIR/benchmarks/benchmark-inference-v0.3.sh" "$PRESET" "$MODEL" 2>&1
-    COLD_LOG=$(ls -t "$LOG_DIR"/*coldstart-*.log 2>/dev/null | head -1 || true)
-    extract_coldstart "$COLD_LOG"
-    echo "  → Cold-start done."
+    if bash "$SCRIPT_DIR/benchmarks/benchmark-inference-v0.3.sh" "$PRESET" "$MODEL" 2>&1; then
+        COLD_LOG=$(ls -t "$LOG_DIR"/*coldstart-*.log 2>/dev/null | head -1 || true)
+        extract_coldstart "$COLD_LOG"
+        echo "  → Cold-start done."
+    else
+        echo "  → Cold-start benchmark failed; continuing with cold-start marked N/A."
+        COLD_BASELINE="N/A"
+        COLD_TUNED="N/A"
+        COLD_DELTA="N/A"
+    fi
 fi
 
 # ── Benchmark 3: Sustained inference ─────────────────────────────────────────
 echo ""
 if [[ "$SKIP_INFERENCE" == "1" ]]; then
-    echo "[3/3] Sustained inference — SKIPPED (ollama not installed)"
+    echo "[3/3] Sustained inference — SKIPPED (ollama unavailable)"
 else
     echo "[3/3] Sustained inference benchmark (steady-state tok/s)..."
-    bash "$SCRIPT_DIR/benchmarks/benchmark-inference-v0.1.sh" "$PRESET" "$MODEL" 2>&1
-    WARM_LOG=$(ls -t "$LOG_DIR"/*inference-*.log 2>/dev/null | head -1 || true)
-    extract_sustained "$WARM_LOG"
-    echo "  → Sustained inference done."
+    if bash "$SCRIPT_DIR/benchmarks/benchmark-inference-v0.1.sh" "$PRESET" "$MODEL" 2>&1; then
+        WARM_LOG=$(ls -t "$LOG_DIR"/*inference-*.log 2>/dev/null | head -1 || true)
+        extract_sustained "$WARM_LOG"
+        echo "  → Sustained inference done."
+    else
+        echo "  → Sustained benchmark failed; continuing with sustained inference marked N/A."
+        WARM_BASELINE="N/A"
+        WARM_TUNED="N/A"
+        WARM_DELTA="N/A"
+    fi
 fi
 
 # ── Idle power — tuned + stability check ─────────────────────────────────────

@@ -44,6 +44,8 @@ python3 tools/seed_organism.py run-variant \
 
 The `--execute` mode is Linux-only. It runs `cursiveos-full-test-v1.4.sh` with the variant preset path, parses the produced summary log, and turns the result into the same seed organism sensor bundle used by fixture mode.
 
+If Ollama is installed but not running, the harness now tries to start it automatically before pulling or validating a model. If Ollama still cannot become ready, the run continues with inference metrics marked `N/A`; the seed organism should then emit an invalid or inconclusive bundle rather than losing the whole audit trail.
+
 ## Artifact Contract
 
 Each evaluated variant writes an audit bundle:
