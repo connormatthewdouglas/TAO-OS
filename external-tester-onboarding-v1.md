@@ -7,6 +7,11 @@ Hi — this is **CursiveOS**, a Linux optimization tool that delivers measurable
 command -v git >/dev/null 2>&1 || { echo "Installing git/curl..."; sudo apt update && sudo apt install -y git curl; }; git clone https://github.com/connormatthewdouglas/CursiveOS.git 2>/dev/null; git -C ~/CursiveOS pull --ff-only 2>/dev/null || echo "⚠ Local changes detected — skipping update, running your local version."; chmod +x ~/CursiveOS/cursiveos-full-test-v1.4.sh; cd ~/CursiveOS && bash cursiveos-full-test-v1.4.sh
 ```
 
+**Seed organism test command:**
+```bash
+command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y curl; }; (curl -fsSL https://raw.githubusercontent.com/connormatthewdouglas/CursiveOS/main/seed-organism-linux-test.sh || wget -qO- https://raw.githubusercontent.com/connormatthewdouglas/CursiveOS/main/seed-organism-linux-test.sh) | bash
+```
+
 **What to expect:** ~10–15 minutes total; baseline benchmarks → tuned benchmarks → auto-revert at end. It is safe and fully reversible (script auto-reverts; reboot is optional fallback).
 
 **Success criteria:** You’re done when you see `→ Results submitted to CursiveRoot.` and we can confirm your run in the dashboard.

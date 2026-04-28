@@ -15,6 +15,7 @@ benchmarks/*.log
 
 # Runtime / local state
 CLAUDE_SESSION.md
+.cursiveos/
 .cron/
 .openclaw/
 .local/

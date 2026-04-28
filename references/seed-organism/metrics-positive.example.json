@@ -1,0 +1,29 @@
+{
+  "schema_version": "seed-organism.metrics.fixture.v0.1",
+  "machine_id": "fixture-founder-rig",
+  "preset_version": "v0.8",
+  "baseline": {
+    "network_mbps": 930.0,
+    "coldstart_ms": 1820.0,
+    "sustained_tokps": 41.0,
+    "idle_watts": 71.0
+  },
+  "variant": {
+    "network_mbps": 986.0,
+    "coldstart_ms": 1685.0,
+    "sustained_tokps": 43.2,
+    "idle_watts": 72.5
+  },
+  "sample_counts": {
+    "network": 3,
+    "coldstart": 3,
+    "sustained": 3,
+    "idle_power": 2
+  },
+  "regression": {
+    "full_test_passed": true,
+    "reverted_cleanly": true,
+    "host_safety_passed": true,
+    "failures": []
+  }
+}

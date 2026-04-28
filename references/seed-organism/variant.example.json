@@ -1,0 +1,10 @@
+{
+  "schema_version": "seed-organism.variant.v0.1",
+  "variant_id": "genesis-positive-fixture",
+  "contributor_id": "local-founder",
+  "commit_ref": "local-fixture",
+  "preset_version": "v0.8",
+  "preset_path": "presets/cursiveos-presets-v0.8.sh",
+  "declared_scope": "Fixture variant proving the Phase 0 seed organism loop on non-Linux hosts.",
+  "rollback_method": "Fixture only; real Linux runs use preset --undo through cursiveos-full-test-v1.4.sh."
+}

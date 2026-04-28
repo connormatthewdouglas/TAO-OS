@@ -29,6 +29,14 @@ Runs all benchmarks, applies presets, shows you exactly what you gain, and rever
 ./scripts/cursiveroot-status.sh
 ```
 
+## Seed organism Linux test
+
+This is the one-command Phase 0 organism path for a real Linux test machine. It clones or updates CursiveOS, runs the full benchmark/preset loop, writes a local seed-organism audit bundle, closes a fake revenue cycle, and leaves all local artifacts under `~/CursiveOS/.cursiveos/seed/`.
+
+```bash
+command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y curl; }; (curl -fsSL https://raw.githubusercontent.com/connormatthewdouglas/CursiveOS/main/seed-organism-linux-test.sh || wget -qO- https://raw.githubusercontent.com/connormatthewdouglas/CursiveOS/main/seed-organism-linux-test.sh) | bash
+```
+
 ---
 
 ## Results (v0.8-locked presets — validated across 3 machines)

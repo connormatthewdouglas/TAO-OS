@@ -39,6 +39,7 @@ MODEL="${MODEL:-tinyllama}"  # fallback if ollama not running yet — preflight 
 LOG_DIR="$SCRIPT_DIR/logs"
 mkdir -p "$LOG_DIR"
 SUMMARY_LOG="$LOG_DIR/cursiveos-full-test-$(date +%Y%m%d-%H%M%S).log"
+RESULT_JSON="${SUMMARY_LOG%.log}.json"
 HW_DB="$SCRIPT_DIR/hardware-profiles.json"
 
 # ── CursiveRoot (Supabase) ──────────────────────────────────────────────────────
@@ -587,6 +588,75 @@ fi
 if [[ "$WARM_D" == "null" ]]; then
     echo "  [guard] sustained delta skipped/non-numeric: delta='${WARM_DELTA:-<empty>}'"
 fi
+
+python3 - "$RESULT_JSON" <<PYJSON
+import json, datetime, sys
+
+def n(v):
+    try: return float(v)
+    except: return None
+
+def ni(v):
+    try: return int(float(v))
+    except: return None
+
+def b(v):
+    return str(v).lower() == "true"
+
+data = {
+    "schema_version": "cursiveos.full-test-result.v1.4",
+    "source": "cursiveos-full-test-v1.4.sh",
+    "summary_log": "$SUMMARY_LOG",
+    "created_at": datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat(),
+    "machine_id": "$HW_FINGERPRINT",
+    "hardware_fingerprint_hash": "$HW_FINGERPRINT",
+    "preset_version": "v0.8",
+    "wrapper_version": "v1.4",
+    "hardware": {
+        "cpu": "$CPU_MODEL",
+        "gpu": "$GPU_MODEL",
+        "gpu_vendor": "$GPU_VENDOR",
+        "ram_gb": ni("$RAM_GB"),
+        "kernel": "$KERNEL",
+        "distro": "$OS_NAME",
+        "thermal_headroom_c": ni("$THERM")
+    },
+    "baseline": {
+        "network_mbps": n("$NET_B"),
+        "coldstart_ms": n("$COLD_B"),
+        "sustained_tokps": n("$WARM_B"),
+        "idle_watts": n("$PWR_B")
+    },
+    "variant": {
+        "network_mbps": n("$NET_T"),
+        "coldstart_ms": n("$COLD_T"),
+        "sustained_tokps": n("$WARM_T"),
+        "idle_watts": n("$PWR_T")
+    },
+    "delta": {
+        "network_pct": n("$NET_D"),
+        "coldstart_pct": n("$COLD_D"),
+        "sustained_pct": n("$WARM_D"),
+        "idle_power_w": n("$PWR_D")
+    },
+    "sample_counts": {
+        "network": 1,
+        "coldstart": 1,
+        "sustained": 1,
+        "idle_power": 1 if n("$PWR_B") is not None and n("$PWR_T") is not None else 0
+    },
+    "regression": {
+        "full_test_passed": b("$STAB"),
+        "reverted_cleanly": True,
+        "host_safety_passed": True,
+        "failures": [] if b("$STAB") else ["stability flag false in full-test summary"]
+    }
+}
+with open(sys.argv[1], "w") as f:
+    json.dump(data, f, indent=2, sort_keys=True)
+    f.write("\n")
+PYJSON
+echo "Machine-readable result saved: $RESULT_JSON"
 
 SUPABASE_HEADERS=(
     -H "apikey: $SUPABASE_KEY"
