@@ -19,6 +19,9 @@ import platform
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
@@ -26,6 +29,8 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_STATE_DIR = ROOT / ".cursiveos" / "seed"
+DEFAULT_SUPABASE_URL = "https://iovvktpuoinmjdgfxgvm.supabase.co"
+DEFAULT_SUPABASE_KEY = "sb_publishable_4WefsfMl0sNNo9O2c_lxnA_q2VQ01jn"
 DEFAULT_CONFIG = {
     "schema_version": "seed-organism.config.v0.1",
     "current_cycle_share": 0.20,
@@ -689,6 +694,160 @@ def cmd_export(args: argparse.Namespace) -> None:
     print(f"export: {rel(out)}")
 
 
+def public_supabase_url() -> str:
+    return os.environ.get("CURSIVEOS_SUPABASE_URL") or os.environ.get("SUPABASE_URL") or DEFAULT_SUPABASE_URL
+
+
+def public_supabase_key() -> str:
+    return os.environ.get("CURSIVEOS_SUPABASE_KEY") or os.environ.get("SUPABASE_KEY") or DEFAULT_SUPABASE_KEY
+
+
+def postgrest_upsert(table: str, conflict_key: str, payload: dict[str, Any]) -> None:
+    url = f"{public_supabase_url().rstrip('/')}/rest/v1/{table}?on_conflict={urllib.parse.quote(conflict_key)}"
+    body = json.dumps(payload, sort_keys=True).encode("utf-8")
+    key = public_supabase_key()
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates,return=minimal",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as res:
+            if res.status not in (200, 201, 204):
+                raise SeedError(f"Supabase upload returned HTTP {res.status}")
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        raise SeedError(f"Supabase upload failed for {table}: HTTP {exc.code} {details}") from exc
+    except urllib.error.URLError as exc:
+        raise SeedError(f"Supabase upload failed for {table}: {exc.reason}") from exc
+
+
+def load_bundle_dir(run_dir: Path) -> dict[str, Any]:
+    manifest = read_json(run_dir / "bundle-manifest.json")
+    variant = read_json(run_dir / "variant.json")
+    metrics = read_json(run_dir / "metrics.json")
+    sensor = read_json(run_dir / "sensor-result.json")
+    regression = read_json(run_dir / "regression-result.json")
+    return {
+        "manifest": manifest,
+        "variant": variant,
+        "metrics": metrics,
+        "sensor_result": sensor,
+        "regression_result": regression,
+    }
+
+
+def seed_bundle_payload(bundle: dict[str, Any]) -> dict[str, Any]:
+    manifest = bundle["manifest"]
+    variant = bundle["variant"]
+    sensor = bundle["sensor_result"]
+    regression = bundle["regression_result"]
+    return {
+        "bundle_hash": manifest["bundle_hash"],
+        "variant_id": manifest["variant_id"],
+        "cycle_id": manifest.get("cycle_id"),
+        "decision": manifest["decision"],
+        "reason": manifest.get("reason"),
+        "machine_id": sensor.get("machine_id") or regression.get("machine_id"),
+        "contributor_id": variant.get("contributor_id"),
+        "commit_ref": variant.get("commit_ref"),
+        "fitness_score": sensor.get("fitness_score"),
+        "confidence": sensor.get("confidence"),
+        "sensor_result_hash": sensor.get("sensor_result_hash"),
+        "regression_result_hash": regression.get("regression_result_hash"),
+        "result_bundle": bundle,
+        "source": "seed_organism.py",
+    }
+
+
+def payout_payload(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "payout_report_hash": report["payout_report_hash"],
+        "cycle_id": str(report["cycle_id"]),
+        "simulated_revenue_sats": report.get("simulated_revenue_sats"),
+        "contributor_count": len(report.get("contributors", []) or []),
+        "report": report,
+        "source": "seed_organism.py",
+    }
+
+
+def cmd_upload(args: argparse.Namespace) -> None:
+    state = state_path(args)
+    ensure_state(state)
+    uploaded_bundles = 0
+    uploaded_payouts = 0
+
+    for manifest_path in sorted((state / "runs").glob("cycle-*/*/bundle-manifest.json")):
+        bundle = load_bundle_dir(manifest_path.parent)
+        postgrest_upsert("seed_bundles", "bundle_hash", seed_bundle_payload(bundle))
+        uploaded_bundles += 1
+
+    for report_path in sorted((state / "cycles").glob("cycle-*-payout.json")):
+        report = read_json(report_path)
+        postgrest_upsert("seed_payout_reports", "payout_report_hash", payout_payload(report))
+        uploaded_payouts += 1
+
+    print(f"uploaded_seed_bundles: {uploaded_bundles}")
+    print(f"uploaded_payout_reports: {uploaded_payouts}")
+    print("cursiveroot_upload: ok")
+
+
+def postgrest_get(endpoint: str) -> list[dict[str, Any]]:
+    url = f"{public_supabase_url().rstrip('/')}/rest/v1/{endpoint}"
+    key = public_supabase_key()
+    req = urllib.request.Request(
+        url,
+        headers={
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as res:
+            data = json.loads(res.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        raise SeedError(f"CursiveRoot read failed: HTTP {exc.code} {details}") from exc
+    except urllib.error.URLError as exc:
+        raise SeedError(f"CursiveRoot read failed: {exc.reason}") from exc
+    if not isinstance(data, list):
+        raise SeedError("CursiveRoot returned an unexpected response")
+    return [row for row in data if isinstance(row, dict)]
+
+
+def cmd_remote_status(args: argparse.Namespace) -> None:
+    limit = max(1, min(int(args.limit), 50))
+    bundle_cols = "bundle_hash,variant_id,decision,machine_id,fitness_score,confidence,created_at"
+    payout_cols = "payout_report_hash,cycle_id,simulated_revenue_sats,contributor_count,created_at"
+    bundles = postgrest_get(
+        f"seed_bundles?select={urllib.parse.quote(bundle_cols, safe=',')}&order=created_at.desc&limit={limit}"
+    )
+    payouts = postgrest_get(
+        f"seed_payout_reports?select={urllib.parse.quote(payout_cols, safe=',')}&order=created_at.desc&limit={limit}"
+    )
+    print("CursiveRoot seed organism status")
+    print(f"latest_seed_bundles: {len(bundles)}")
+    for row in bundles:
+        print(
+            f"  {row.get('created_at')}  {row.get('decision')}  "
+            f"variant={row.get('variant_id')} machine={row.get('machine_id')} "
+            f"fitness={row.get('fitness_score')}"
+        )
+    print(f"latest_payout_reports: {len(payouts)}")
+    for row in payouts:
+        print(
+            f"  {row.get('created_at')}  cycle={row.get('cycle_id')} "
+            f"revenue_sats={row.get('simulated_revenue_sats')} contributors={row.get('contributor_count')}"
+        )
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Run the CursiveOS Phase 0 seed organism loop")
     p.add_argument("--state-dir", default=None, help="local seed state directory (default: .cursiveos/seed)")
@@ -708,6 +867,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="show local organism state")
     sub.add_parser("export", help="export ledger and cycle reports for CursiveRoot/Hub ingestion")
+    sub.add_parser("upload", help="upload local seed bundles and payout reports to CursiveRoot")
+    remote = sub.add_parser("remote-status", help="show latest seed uploads from CursiveRoot")
+    remote.add_argument("--limit", type=int, default=10)
     return p
 
 
@@ -721,6 +883,8 @@ def main(argv: list[str] | None = None) -> int:
             "close-cycle": cmd_close_cycle,
             "status": cmd_status,
             "export": cmd_export,
+            "upload": cmd_upload,
+            "remote-status": cmd_remote_status,
         }[args.cmd](args)
     except SeedError as exc:
         print(f"seed-organism error: {exc}", file=sys.stderr)

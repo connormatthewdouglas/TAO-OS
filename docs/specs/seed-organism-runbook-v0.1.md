@@ -14,6 +14,8 @@ python3 tools/seed_organism.py run-variant \
   --cycle-id 1
 python3 tools/seed_organism.py close-cycle --cycle-id 1 --revenue-sats 100000
 python3 tools/seed_organism.py status
+python3 tools/seed_organism.py upload
+python3 tools/seed_organism.py remote-status
 ```
 
 Local state is written under `.cursiveos/seed/` and is intentionally ignored by git.
@@ -63,4 +65,8 @@ The regression gate is separate from scoring. A variant with good performance is
 
 ## CursiveRoot Boundary
 
-This local implementation does not write to CursiveRoot yet. It exports production-shaped JSON artifacts so the Hub/Supabase ingestion endpoint can be added after the local loop is stable.
+The local implementation writes audit artifacts first, then uploads copies to CursiveRoot with `python3 tools/seed_organism.py upload`. Upload failure does not delete local artifacts.
+
+From the development Mac, use `python3 tools/seed_organism.py remote-status` to confirm that Linux seed uploads reached CursiveRoot.
+
+Phase 0 upload uses the same public-key pattern as benchmark submissions: anonymous clients can insert and read seed artifacts, but cannot update or delete them. This is acceptable for controlled founder-rig testing and should be tightened before broad external tester rollout.

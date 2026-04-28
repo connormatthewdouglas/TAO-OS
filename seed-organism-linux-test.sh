@@ -81,6 +81,13 @@ run_seed() {
   say "Local organism status"
   python3 tools/seed_organism.py status
 
+  say "Uploading seed organism artifacts to CursiveRoot"
+  if python3 tools/seed_organism.py upload; then
+    say "Seed organism artifacts uploaded to CursiveRoot"
+  else
+    say "Upload did not complete. Local artifacts are still saved and can be retried with: cd $TARGET_DIR && python3 tools/seed_organism.py upload"
+  fi
+
   say "Finished. Local audit bundles are under $TARGET_DIR/.cursiveos/seed/"
   say "Benchmark logs are under $TARGET_DIR/logs/"
 }
