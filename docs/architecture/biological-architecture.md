@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE
 **Date:** 2026-04-17
-**Paired documents:** [`white-paper.md`](../../white-paper.md) v2.2, [`layer5-economics-v3.3.md`](../specs/layer5-economics-v3.3.md)
+**Paired documents:** [`white-paper.md`](../../white-paper.md) v2.3, [`layer5-economics-v3.3.md`](../specs/layer5-economics-v3.3.md)
 
 ---
 

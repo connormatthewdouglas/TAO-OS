@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE — supersedes v3.1, v1.1, and v1.0
 **Date:** 2026-04-17
-**Paired document:** [`white-paper.md`](../../white-paper.md) v2.1
+**Paired document:** [`white-paper.md`](../../white-paper.md) v2.3
 
 ---
 
@@ -174,8 +174,8 @@ where `n` is the contributor's cumulative merge count at the time of the merge (
 
 **Target behavior:**
 
-- High R_meta (recruitment-dominant) → organism is attracting new blood; shift split toward lifetime to reward returners.
-- Low R_meta (retention-dominant) → organism needs fresh mutations; shift split toward current-cycle.
+- High R_meta (new-contributor signal is strong) → recruitment is the active growth front; shift split toward current-cycle to make new contribution visibly worthwhile.
+- Low R_meta (returning-contributor signal dominates) → retention and maintenance are carrying the organism; shift split toward lifetime to sustain the active base.
 
 ### 4.3 Adjustment Function
 
@@ -207,7 +207,7 @@ The lifetime-favored genesis reflects a substantive truth about bootstrap: almos
 
 While there is only one contributor (founder-only bootstrap), the split is mathematically irrelevant — the founder receives 100% of both streams because there is no other wallet to distribute to. The metabolic sensor can be active from day one; it simply has no data to act on until a second contributor appears.
 
-The moment a second contributor's first merge lands, the sensor has signal. R_meta will be driven by the new contributor's merges (high new_weight) and will push the split toward lifetime — but because this only happens after the new contributor has earned their own lifetime fitness, the new contributor benefits from the shift as well.
+The moment a second contributor's first merge lands, the sensor has signal. R_meta will be driven by the new contributor's merges (high new_weight) and will push the split toward current-cycle. This makes the organism's response to new arrival visibly accommodating while the new contributor's accepted work also begins accumulating permanent lifetime fitness.
 
 ### 4.6 What the Sensor Does Not Do
 

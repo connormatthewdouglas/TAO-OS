@@ -151,7 +151,7 @@ The incentive layer is Bitcoin-native and has no token, no pool, and no governan
 - **Done** → Cold-start latency: -2.3% to -29% validated across 3 rigs
 - **Done** → Full-test wrapper v1.4 (CursiveRoot auto-submit, zero setup)
 - **Done** → CursiveRoot: live hardware/performance database
-- **Done** → v3.3 economic architecture specified (white paper v2.2)
+- **Done** → v3.3 economic architecture specified (white paper v2.3)
 - **Done** → Agent architecture specified (measurement daemon + natural-language shell)
 - **In progress** → Hub rebuild to v3.3 (new design system, seven-tab frontend, Supabase backend)
 - **In progress** → Phase 0 seed organism (measurement-to-ledger loop on founder's rig)
@@ -174,13 +174,16 @@ Local compute can't thrive long-term on a single vendor's silicon. CursiveOS is 
 ## Documentation
 
 - [`ROADMAP.md`](ROADMAP.md) — four-transition roadmap with milestones and flagship features by release
-- [`white-paper.md`](white-paper.md) — full technical white paper (v2.2)
+- [`white-paper.md`](white-paper.md) — technical white paper (v2.3)
+- [`software-organisms-manifesto.md`](software-organisms-manifesto.md) — the software organism framework and theory
+- [`docs/specs/seed-organism-v0.1.md`](docs/specs/seed-organism-v0.1.md) — Phase 0 minimum viable organism specification
 - [`docs/specs/layer5-economics-v3.3.md`](docs/specs/layer5-economics-v3.3.md) — authoritative economics specification
 - [`docs/architecture/biological-architecture.md`](docs/architecture/biological-architecture.md) — the organism frame and biological mapping
 - [`docs/architecture/agent-architecture.md`](docs/architecture/agent-architecture.md) — measurement daemon specification and natural-language shell architectural sketch
 - [`docs/architecture/sensor-array.md`](docs/architecture/sensor-array.md) — sensor families, curation, genesis suite, and the metabolic sensor
 - [`docs/architecture/testers.md`](docs/architecture/testers.md) — the tester tier, the free-Fast-access exchange, and the spoofing trap
 - [`docs/architecture/hardening.md`](docs/architecture/hardening.md) — substrate dependencies, bootstrap risk, and attack-surface analysis
+- [`docs/CHANGELOG-v2.3.md`](docs/CHANGELOG-v2.3.md) — what changed in the v2.2 → v2.3 technical/theory split
 - [`docs/CHANGELOG-v2.2.md`](docs/CHANGELOG-v2.2.md) — what changed in the v2.1 → v2.2 update
 - [`docs/CHANGELOG-v2.1.md`](docs/CHANGELOG-v2.1.md) — what changed in the v1.0/v3.1 → v2.1/v3.3 transition
 

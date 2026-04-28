@@ -159,14 +159,14 @@ Properties of this weighting:
 
 The sensor computes a target split from R_meta. Target behavior:
 
-- Very high R_meta (overwhelmingly new contributors producing the merges) → recruitment is healthy and well-rewarded; target a higher lifetime share.
-- Very low R_meta (overwhelmingly returning contributors producing the merges) → recruitment is failing; target a higher current-cycle share.
+- Very high R_meta (overwhelmingly new contributors producing the merges) → recruitment is the active growth front; target a higher current-cycle share.
+- Very low R_meta (overwhelmingly returning contributors producing the merges) → retention and maintenance are carrying the organism; target a higher lifetime share.
 - R_meta near a neutral reference → target remains near current.
 
 The exact mapping function `f(R_meta) → s_target` is tunable. The starting function is:
 
 ```
-s_current_target = 0.3 + 0.3 × tanh(log(R_neutral / R_meta))
+s_current_target = 0.3 + 0.3 × tanh(log(R_meta / R_neutral))
 ```
 
 with `R_neutral` initially set to 1.0 (equal weighted fitness from new and returning). The tanh function bounds the target between approximately 0.0 and 0.6, with soft saturation at the extremes. Movement from the current split toward the target is rate-limited:
@@ -198,9 +198,9 @@ The first several merges by the second contributor will be heavily weighted as "
 
 The metabolic sensor is a high-value attack target. The primary attacks and their defenses:
 
-**New-contributor farm.** Attacker creates many fake new contributors to drive R_meta high, shifting the split toward lifetime, benefiting themselves as an existing contributor. Defense: fake contributors have to produce mergeable code (positive fitness from the performance sensor, passing the regression gate) to be counted. The attack either fails (code is not mergeable) or produces genuine value for the organism (the code does improve it). Additionally, shifting toward lifetime benefits all lifetime contributors proportionally, not just the attacker, so the attacker's ROI is capped at their share of lifetime fitness.
+**New-contributor farm.** Attacker creates many fake new contributors to drive R_meta high, shifting the split toward current-cycle. Defense: fake contributors have to produce mergeable code (positive fitness from the performance sensor, passing the regression gate) to be counted. The attack either fails (code is not mergeable) or produces genuine value for the organism (the code does improve it). Additionally, current-cycle rewards flow to the contributors whose accepted work produced the measured fitness, so fake identities do not extract unless they do real work.
 
-**Returning-contributor farm.** Inverse attack — existing wallets produce many small merges to drive R_meta low, shifting toward current-cycle. Defense: same code-submission requirement. Low-value merges fail the regression gate or have near-zero fitness score.
+**Returning-contributor farm.** Inverse attack — existing wallets produce many small merges to drive R_meta low, shifting toward lifetime. Defense: same code-submission requirement. Low-value merges fail the regression gate or have near-zero fitness score. Shifting toward lifetime also benefits all lifetime-fitness holders proportionally, not just the attacker, so the attacker's ROI is capped by their share of total lifetime fitness.
 
 **Merge-timing coordination.** Genuine merges delayed or bunched into specific cycles to manipulate the windowed R_meta calculation. Defense: the 2.5 percentage point per cycle rate limit combined with the three-cycle window makes single-cycle manipulations have bounded effect.
 

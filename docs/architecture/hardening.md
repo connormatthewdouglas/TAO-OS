@@ -67,17 +67,17 @@ This section enumerates the attack patterns considered during design and the def
 
 ### 2.2 Spoofing: Fake Contributors to Game the Metabolic Sensor
 
-**Attack:** Attacker creates many "new contributor" wallets to inflate R_meta, shifting the metabolic sensor toward lifetime stream, benefiting themselves as an existing lifetime-fitness holder.
+**Attack:** Attacker creates many "new contributor" wallets to inflate R_meta, shifting the metabolic sensor toward the current-cycle stream and attempting to capture near-term rewards through fake identities.
 
 **Defense:** Fake contributors must submit code that passes the regression gate and produces positive fitness. If the code is genuine, the attack produces value for the organism (the code gets merged and improves things). If the code is garbage, it fails the sensor evaluation and contributes no signal to R_meta.
 
 The attack trap: either the fake contributors produce real value (attack fails to gain anything because the "fake" contribution is actually real) or they produce garbage (attack fails because the garbage doesn't merge). There is no configuration in which the attack extracts without also contributing.
 
-Additionally, shifting the split toward lifetime benefits **all** lifetime-fitness holders proportionally. The attacker's ROI is capped at their share of the total lifetime fitness pool, which diminishes as the contributor base grows.
+Additionally, current-cycle rewards flow to the accepted variants that actually produced measured fitness. The attacker cannot extract through fake identity alone; they must produce mergeable, positive-fitness work. If they do, the "attack" has created value for the organism.
 
 ### 2.3 Spoofing: Fake Contributors to Game the Current-Cycle Stream
 
-**Attack:** Attacker with existing wallets produces many small merges to drive R_meta low (making it look like recruitment is failing), shifting the split toward current-cycle, benefiting themselves this cycle.
+**Attack:** Attacker with existing wallets produces many small merges to drive R_meta low, shifting the split toward lifetime and benefiting themselves as an existing lifetime-fitness holder.
 
 **Defense:** Same as 2.2 — merges must pass the regression gate and produce positive fitness. Low-value spam merges fail both. The only merges that count toward R_meta are ones that improved the organism.
 
