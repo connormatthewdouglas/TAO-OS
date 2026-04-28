@@ -861,7 +861,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--execute", action="store_true", help="run the Linux full-test harness for the variant preset")
     run.add_argument("--cycle-id", type=int, default=1)
 
-    close = sub.add_parser("close-cycle", help="compute fake-BTC payout report for a cycle")
+    close = sub.add_parser("close-cycle", help="compute simulated payout report for accepted contributor fitness")
     close.add_argument("--cycle-id", type=int, required=True)
     close.add_argument("--revenue-sats", type=int, required=True)
 

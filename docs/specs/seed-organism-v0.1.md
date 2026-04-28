@@ -204,6 +204,12 @@ Fitness entries are append-only. Corrections are new entries that supersede prio
 
 The seed organism must simulate revenue flow even before real revenue exists.
 
+A fake revenue cycle is an accounting rehearsal. It uses pretend sats or integer test units to prove that measured fitness can flow into current-cycle and lifetime payout calculations without moving real BTC, creating a claim, or promising compensation. It tests the machinery of metabolism, not settlement.
+
+A payout report is the generated audit artifact for that rehearsal. It records the simulated revenue amount, the current-cycle/lifetime split, the contributors included in the calculation, their measured fitness weights, and the hypothetical sats each would receive if the same ledger state were settled with real revenue.
+
+In a single accepted benchmark/variant run, the simulated payout goes to the `contributor_id` attached to the accepted variant ledger entry. In the current founder-rig bootstrap fixtures this is `local-founder`. The benchmark operator/tester is not paid merely for running one benchmark unless that person is also the contributor identity for an accepted variant. This preserves the Layer 5 distinction: contributors earn fitness/revenue share for accepted improvements; testers provide measurement data and are compensated separately by product access in the external-tester model.
+
 Phase 0 cycle rule:
 
 - Cycle length: one week for simulation, or one month if matching production exactly.
@@ -459,4 +465,3 @@ It is built from the preset stack and the minimum sensor suite, but it is not re
 The correct Phase 0 target is therefore:
 
 **one machine, one contributor, current preset stack, two sensor families, append-only fitness ledger, fake-BTC cycle close, three successful cycles, then first external tester.**
-

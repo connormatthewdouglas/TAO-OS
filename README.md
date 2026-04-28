@@ -31,7 +31,9 @@ Runs all benchmarks, applies presets, shows you exactly what you gain, and rever
 
 ## Seed organism Linux test
 
-This is the one-command Phase 0 organism path for a real Linux test machine. It clones or updates CursiveOS, runs the full benchmark/preset loop, writes a local seed-organism audit bundle, closes a fake revenue cycle, and leaves all local artifacts under `~/CursiveOS/.cursiveos/seed/`.
+This is the one-command Phase 0 organism path for a real Linux test machine. It clones or updates CursiveOS, runs the full benchmark/preset loop, writes a local seed-organism audit bundle, closes a simulated revenue cycle, uploads seed artifacts to CursiveRoot, and leaves local backups under `~/CursiveOS/.cursiveos/seed/`.
+
+The simulated revenue cycle does not pay real money. It is an accounting rehearsal: if a variant is accepted, the `contributor_id` attached to that accepted variant receives hypothetical sats in the payout report. Benchmark testers are not paid simply for running a test unless they are also the contributor for an accepted variant.
 
 ```bash
 command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y curl; }; (curl -fsSL https://raw.githubusercontent.com/connormatthewdouglas/CursiveOS/main/seed-organism-linux-test.sh || wget -qO- https://raw.githubusercontent.com/connormatthewdouglas/CursiveOS/main/seed-organism-linux-test.sh) | bash

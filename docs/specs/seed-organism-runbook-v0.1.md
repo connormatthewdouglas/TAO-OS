@@ -6,6 +6,10 @@ This runbook is the first executable path for the Phase 0 seed organism describe
 
 Use this path while developing on macOS. It proves scoring, gating, bundle writing, ledger append, and fake payout without touching host tuning.
 
+In Phase 0, a fake revenue cycle is simulated accounting only. It does not move BTC, create a claim, or promise compensation. It proves that accepted fitness entries can be converted into a payout report using the Layer 5 current-cycle and lifetime split.
+
+A payout report is the audit artifact from that simulation. It shows which contributor identities would receive simulated sats if the same ledger state were settled for real. For a single accepted benchmark/variant run, the simulated payee is the `contributor_id` on the accepted variant ledger entry, currently `local-founder` in the bootstrap examples. A machine tester is not paid merely for running a benchmark unless they are also the contributor for an accepted variant.
+
 ```bash
 python3 tools/seed_organism.py init
 python3 tools/seed_organism.py run-variant \
@@ -70,3 +74,5 @@ The local implementation writes audit artifacts first, then uploads copies to Cu
 From the development Mac, use `python3 tools/seed_organism.py remote-status` to confirm that Linux seed uploads reached CursiveRoot.
 
 Phase 0 upload uses the same public-key pattern as benchmark submissions: anonymous clients can insert and read seed artifacts, but cannot update or delete them. This is acceptable for controlled founder-rig testing and should be tightened before broad external tester rollout.
+
+Do not forget this before external rollout: public insert/read is a bootstrap convenience, not the final trust model. The next hardening pass should add authenticated machine/tester identity, server-side validation, and narrower read/write policies.
